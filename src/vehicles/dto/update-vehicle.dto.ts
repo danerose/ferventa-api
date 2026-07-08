@@ -20,7 +20,6 @@ export class UpdateVehicleDto {
 
   @ApiPropertyOptional({ example: 2018, description: 'Año' })
   @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })
-  @Min(1900, { message: i18nValidationMessage('validation.min') })
   @IsOptional()
   year?: number;
 

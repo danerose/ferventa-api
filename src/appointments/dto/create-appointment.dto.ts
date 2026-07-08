@@ -26,7 +26,6 @@ export class AppointmentVehicleDto {
 
   @ApiProperty({ example: 2015, description: 'Año' })
   @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })
-  @Min(1900, { message: i18nValidationMessage('validation.min') })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   year: number;
 
