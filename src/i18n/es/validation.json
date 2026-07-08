@@ -1,0 +1,15 @@
+{
+  "isNotEmpty": "El campo {property} es requerido",
+  "isString": "El campo {property} debe ser una cadena de texto",
+  "isEmail": "El campo {property} debe ser un correo electrónico válido",
+  "minLength": "El campo {property} debe tener al menos {constraints.0} caracteres",
+  "isMongoId": "El campo {property} debe ser un ID de MongoDB válido",
+  "isNumber": "El campo {property} debe ser un número",
+  "min": "El campo {property} debe ser como mínimo {constraints.0}",
+  "isEnum": "El campo {property} debe ser un valor válido",
+  "isBoolean": "El campo {property} debe ser un valor booleano",
+  "isDateString": "El campo {property} debe ser una fecha ISO válida",
+  "isArray": "El campo {property} debe ser un arreglo",
+  "max": "El campo {property} debe ser como máximo {constraints.0}",
+  "matches": "El campo {property} tiene un formato inválido"
+}

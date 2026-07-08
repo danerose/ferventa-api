@@ -1,0 +1,15 @@
+{
+  "isNotEmpty": "The field {property} is required",
+  "isString": "The field {property} must be a string",
+  "isEmail": "The field {property} must be a valid email address",
+  "minLength": "The field {property} must be at least {constraints.0} characters long",
+  "isMongoId": "The field {property} must be a valid MongoDB ID",
+  "isNumber": "The field {property} must be a number",
+  "min": "The field {property} must be at least {constraints.0}",
+  "isEnum": "The field {property} must be a valid value",
+  "isBoolean": "The field {property} must be a boolean",
+  "isDateString": "The field {property} must be a valid ISO date",
+  "isArray": "The field {property} must be an array",
+  "max": "The field {property} must be at most {constraints.0}",
+  "matches": "The field {property} has an invalid format"
+}
