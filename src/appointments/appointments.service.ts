@@ -285,6 +285,7 @@ export class AppointmentsService implements OnModuleInit {
     if (updateAppointmentDto.serviceRequested) appointment.serviceRequested = updateAppointmentDto.serviceRequested;
     if (updateAppointmentDto.status) appointment.status = updateAppointmentDto.status;
     if (updateAppointmentDto.notes !== undefined) appointment.notes = updateAppointmentDto.notes;
+    if (updateAppointmentDto.branchName !== undefined) appointment.branchName = updateAppointmentDto.branchName;
 
     return (await appointment.save()).populate('customer');
   }
@@ -431,6 +432,7 @@ export class AppointmentsService implements OnModuleInit {
         status: appt.status,
         notes: appt.notes,
         assignedMechanic: appt.assignedMechanic || null,
+        branchName: appt.branchName || null,
         vehicle: appt.vehicle,
         customer: appt.customer || null,
         startTime: formatTimeStr(apptStart),

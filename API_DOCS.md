@@ -386,7 +386,8 @@ Cuando una petición falla (por ejemplo, errores de validación de campos), la r
     "scheduledAt": "2026-07-10T10:00:00Z",
     "notes": "Prefiere aceite sintético",
     "duration": 90,
-    "assignedMechanic": "Roberto Sánchez"
+    "assignedMechanic": "Roberto Sánchez",
+    "branchName": "Sucursal Centro"
   }
   ```
 
@@ -404,7 +405,8 @@ Cuando una petición falla (por ejemplo, errores de validación de campos), la r
         "status": "pending",
         "serviceRequested": "Cambio de aceite y filtro",
         "duration": 90,
-        "assignedMechanic": "Roberto Sánchez"
+        "assignedMechanic": "Roberto Sánchez",
+        "branchName": "Sucursal Centro"
       }
     ],
     "message": "Operación realizada con éxito"
@@ -427,7 +429,8 @@ Cuando una petición falla (por ejemplo, errores de validación de campos), la r
     "status": "approved",
     "scheduledAt": "2026-07-10T11:00:00Z",
     "duration": 60,
-    "assignedMechanic": "Roberto Sánchez"
+    "assignedMechanic": "Roberto Sánchez",
+    "branchName": "Sucursal Centro"
   }
   ```
 
@@ -556,6 +559,7 @@ Cuando una petición falla (por ejemplo, errores de validación de campos), la r
         "duration": 90,
         "status": "approved",
         "assignedMechanic": "Roberto Sánchez",
+        "branchName": "Sucursal Centro",
         "vehicle": {
           "brand": "Yamaha",
           "model": "MT-09",

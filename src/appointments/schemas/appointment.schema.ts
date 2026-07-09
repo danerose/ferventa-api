@@ -61,6 +61,9 @@ export class Appointment {
 
   @Prop({ type: String, default: '' })
   notes: string;
+
+  @Prop({ type: String, trim: true })
+  branchName?: string;
 }
 
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);

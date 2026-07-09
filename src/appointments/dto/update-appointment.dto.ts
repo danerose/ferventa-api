@@ -84,4 +84,9 @@ export class UpdateAppointmentDto {
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsOptional()
   assignedMechanic?: string;
+
+  @ApiPropertyOptional({ example: 'Sucursal Centro', description: 'Nombre de la sucursal' })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  branchName?: string;
 }
