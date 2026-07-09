@@ -45,7 +45,7 @@ export class Appointment {
   @Prop({ required: true, type: Date, index: true })
   scheduledAt: Date;
 
-  @Prop({ type: Number, default: 60 })
+  @Prop({ type: Number, default: 15 })
   duration: number; // in minutes
 
   @Prop({ type: String, default: null })

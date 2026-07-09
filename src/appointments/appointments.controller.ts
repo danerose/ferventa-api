@@ -190,7 +190,7 @@ export class AppointmentsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Reagendar una cita (manteniendo status pendiente) y enviando confirmación por WhatsApp' })
   reschedule(@Param('id') id: string, @Body() rescheduleAppointmentDto: RescheduleAppointmentDto) {
-    const duration = rescheduleAppointmentDto.duration || 60;
+    const duration = rescheduleAppointmentDto.duration || 15;
     return this.appointmentsService.reschedule(
       id,
       rescheduleAppointmentDto.scheduledAt,

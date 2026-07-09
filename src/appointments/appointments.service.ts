@@ -103,7 +103,7 @@ export class AppointmentsService implements OnModuleInit {
 
     for (const appt of sameDayAppointments) {
       const apptStart = appt.scheduledAt;
-      const apptEnd = new Date(apptStart.getTime() + (appt.duration || 60) * 60 * 1000);
+      const apptEnd = new Date(apptStart.getTime() + (appt.duration || 15) * 60 * 1000);
 
       if (apptStart < appointmentEnd && apptEnd > appointmentStart) {
         const timeFormat = (d: Date) => {
@@ -124,7 +124,7 @@ export class AppointmentsService implements OnModuleInit {
 
   async create(createAppointmentDto: CreateAppointmentDto): Promise<AppointmentDocument> {
     const scheduledAtDate = new Date(createAppointmentDto.scheduledAt);
-    const duration = createAppointmentDto.duration || 60;
+    const duration = createAppointmentDto.duration || 15;
     await this.validateBookingTime(scheduledAtDate, duration);
 
     let customerId = createAppointmentDto.customerId;
@@ -242,7 +242,7 @@ export class AppointmentsService implements OnModuleInit {
     const appointment = await this.findById(id);
 
     let scheduledAtDate = appointment.scheduledAt;
-    let duration = appointment.duration || 60;
+    let duration = appointment.duration || 15;
     if (updateAppointmentDto.scheduledAt) {
       scheduledAtDate = new Date(updateAppointmentDto.scheduledAt);
     }
@@ -361,7 +361,7 @@ export class AppointmentsService implements OnModuleInit {
 
     const busySlots = appointments.map(appt => {
       const start = appt.scheduledAt;
-      const end = new Date(start.getTime() + (appt.duration || 60) * 60 * 1000);
+      const end = new Date(start.getTime() + (appt.duration || 15) * 60 * 1000);
 
       const formatDateStr = (d: Date) => {
         const y = d.getUTCFullYear();
@@ -412,7 +412,7 @@ export class AppointmentsService implements OnModuleInit {
 
     return appointments.map(appt => {
       const apptStart = appt.scheduledAt;
-      const apptEnd = new Date(apptStart.getTime() + (appt.duration || 60) * 60 * 1000);
+      const apptEnd = new Date(apptStart.getTime() + (appt.duration || 15) * 60 * 1000);
 
       const formatTimeStr = (d: Date) => {
         const hours = String(d.getUTCHours()).padStart(2, '0');
@@ -428,7 +428,7 @@ export class AppointmentsService implements OnModuleInit {
         whatsappId: appt.whatsappId,
         serviceRequested: appt.serviceRequested,
         scheduledAt: appt.scheduledAt,
-        duration: appt.duration || 60,
+        duration: appt.duration || 15,
         status: appt.status,
         notes: appt.notes,
         assignedMechanic: appt.assignedMechanic || null,

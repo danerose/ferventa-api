@@ -84,7 +84,7 @@ export class CreateAppointmentDto {
   @IsOptional()
   notes?: string;
 
-  @ApiPropertyOptional({ example: 60, description: 'Duración estimada en minutos' })
+  @ApiPropertyOptional({ example: 15, description: 'Duración estimada en minutos (default: 15)' })
   @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })
   @Min(1, { message: i18nValidationMessage('validation.min') })
   @IsOptional()
