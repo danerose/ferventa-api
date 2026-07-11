@@ -81,8 +81,8 @@ export class Maintenance {
   @Prop({ type: String, default: '' })
   notes: string;
 
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
-  createdBy: User;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: false, default: null })
+  createdBy?: User | null;
 
   @Prop({ type: Date, default: Date.now })
   startDate: Date;

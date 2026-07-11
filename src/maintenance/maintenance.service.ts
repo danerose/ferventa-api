@@ -137,6 +137,28 @@ export class MaintenanceService {
       .exec();
   }
 
+  /**
+   * Automatically creates a Maintenance order linked to a newly scheduled Appointment.
+   * The maintenance order starts in the "awaiting_appointment" limbo status.
+   */
+  async createFromAppointment(
+    appointmentId: string,
+    customerId: string,
+    vehicleId: string,
+    serviceRequested: string,
+  ): Promise<MaintenanceDocument> {
+    const maintenance = new this.maintenanceModel({
+      customer: customerId as any,
+      vehicle: vehicleId as any,
+      appointment: appointmentId as any,
+      laborCost: 0,
+      notes: serviceRequested || 'Servicio programado por cita',
+      status: 'awaiting_appointment',
+      createdBy: null,
+    });
+    return maintenance.save();
+  }
+
   async addItemUsed(id: string, addItemUsedDto: AddItemUsedDto, userId: string): Promise<MaintenanceDocument> {
     const order = await this.findById(id);
 

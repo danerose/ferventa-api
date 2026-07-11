@@ -175,7 +175,22 @@ export class AppointmentsService implements OnModuleInit {
       scheduledAt: scheduledAtDate,
     });
 
-    return (await appointment.save()).populate('customer');
+    const savedAppt = await appointment.save();
+
+    // Automatically register a linked maintenance order in awaiting_appointment status (limbo)
+    try {
+      await this.maintenanceService.createFromAppointment(
+        (savedAppt._id as any).toString(),
+        customerId!,
+        (vehicle._id as any).toString(),
+        createAppointmentDto.serviceRequested,
+      );
+    } catch (err) {
+      console.error('Error creating maintenance automatically from appointment:', err);
+      // We do not throw to avoid crashing the appointment creation if maintenance DB logic fails
+    }
+
+    return savedAppt.populate('customer');
   }
 
   async findAll(filters: {
