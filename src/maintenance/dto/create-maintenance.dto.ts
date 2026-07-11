@@ -23,4 +23,9 @@ export class CreateMaintenanceDto {
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsOptional()
   notes?: string;
+
+  @ApiPropertyOptional({ example: '60d5ec49c6d48227b409748d', description: 'ID de la cita agendada que origina este mantenimiento (opcional para walk-ins)' })
+  @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
+  @IsOptional()
+  appointmentId?: string;
 }

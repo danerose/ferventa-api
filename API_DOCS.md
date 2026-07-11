@@ -423,16 +423,21 @@ Cuando una petición falla (por ejemplo, errores de validación de campos), la r
   - `fromDate` y `toDate` (Opcional, YYYY-MM-DD): Rango de fechas.
 
 ### Modificar Cita (`PATCH /appointments/:id`)
+- **Descripción:** Actualiza campos de una cita existente. **Si el campo `status` se envía como `completed`, el sistema activará automáticamente cualquier orden de mantenimiento vinculada a esta cita** que se encuentre en estado `awaiting_appointment`, moviéndola a `not_started` para que el taller pueda comenzar a trabajar.
+- **Acceso:** `admin` o `seller`.
 - **Request Body (UpdateAppointmentDto):**
   ```json
   {
-    "status": "approved",
+    "status": "completed",
     "scheduledAt": "2026-07-10T11:00:00Z",
     "duration": 60,
     "assignedMechanic": "Roberto Sánchez",
     "branchName": "Sucursal Centro"
   }
   ```
+
+> [!NOTE]
+> Cuando `status` cambia a `completed`, el API ejecuta internamente `MaintenanceService.activateFromAppointment(id)`, promoviendo todas las órdenes de mantenimiento en `awaiting_appointment` asociadas a esta cita hacia `not_started`.
 
 ### Aprobar Cita (`PATCH /appointments/:id/approve`)
 - **Descripción:** Aprueba la cita (cambia el estado a `approved`) y envía de forma automática un mensaje de WhatsApp con el contenido personalizado al número de teléfono del cliente.
@@ -636,7 +641,30 @@ Cuando una petición falla (por ejemplo, errores de validación de campos), la r
 
 ## 8. Mantenimientos / Órdenes de Servicio (`/maintenance`)
 
+### Estados del Mantenimiento
+
+| Estado | Descripción |
+|---|---|
+| `awaiting_appointment` | **Limbo** — la orden existe pero la cita vinculada aún no ha sido completada. El trabajo no puede iniciarse ni cambiarse de estado manualmente. |
+| `not_started` | Cita completada o walk-in. El vehículo está en cola del taller, listo para atenderse. |
+| `in_progress` | El mecánico ha iniciado el trabajo. |
+| `completed` | Trabajo terminado, vehículo listo para entrega. |
+| `delivered` | Vehículo entregado al cliente. |
+
+### Flujo de estados
+
+```
+Con cita:    [awaiting_appointment] ──(cita completed)──► [not_started] ──► [in_progress] ──► [completed] ──► [delivered]
+Walk-in:                                                   [not_started] ──► [in_progress] ──► [completed] ──► [delivered]
+```
+
+> [!IMPORTANT]
+> Un mantenimiento en estado `awaiting_appointment` **no puede ser movido manualmente** a ningún otro estado. El cambio a `not_started` ocurre de forma automática cuando la cita asociada se marca como `completed` via `PATCH /appointments/:id`.
+
+---
+
 ### Crear Orden de Servicio (`POST /maintenance`)
+- **Descripción:** Crea una orden de mantenimiento. Si se provee `appointmentId`, la orden nace en estado `awaiting_appointment` (limbo) y se activa automáticamente cuando la cita es completada. Sin `appointmentId` (walk-in), la orden inicia en `not_started` directamente.
 - **Acceso:** `admin` o `seller`.
 - **Request Body (CreateMaintenanceDto):**
   ```json
@@ -644,7 +672,34 @@ Cuando una petición falla (por ejemplo, errores de validación de campos), la r
     "customerId": "60d5ec...",
     "vehicleId": "60d5ed...",
     "laborCost": 1200.00,
-    "notes": "Diagnóstico inicial por rechinido al frenar"
+    "notes": "Diagnóstico inicial por rechinido al frenar",
+    "appointmentId": "60d5ee..."  // Opcional — omitir para walk-ins
+  }
+  ```
+- **Response (201) — Con cita (limbo):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "60d5ef...",
+      "status": "awaiting_appointment",
+      "appointment": { "id": "60d5ee...", "scheduledAt": "2026-07-26T10:00:00Z", "status": "approved" },
+      "customer": { "id": "60d5ec...", "name": "Carlos Mendoza" },
+      "vehicle": { "id": "60d5ed...", "brand": "Honda", "model": "Civic" }
+    },
+    "message": "Operación realizada con éxito"
+  }
+  ```
+- **Response (201) — Walk-in (sin cita):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "60d5ef...",
+      "status": "not_started",
+      "appointment": null
+    },
+    "message": "Operación realizada con éxito"
   }
   ```
 
@@ -763,6 +818,7 @@ Cuando una petición falla (por ejemplo, errores de validación de campos), la r
   {
     "success": true,
     "data": {
+      "awaiting_appointment": 3,
       "not_started": 2,
       "in_progress": 4,
       "completed": 1,

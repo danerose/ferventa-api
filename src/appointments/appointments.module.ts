@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AppointmentsService } from './appointments.service';
 import { AppointmentsController } from './appointments.controller';
@@ -8,6 +8,7 @@ import { WorkshopHoliday, WorkshopHolidaySchema } from './schemas/workshop-holid
 import { CustomersModule } from '../customers/customers.module';
 import { VehiclesModule } from '../vehicles/vehicles.module';
 import { WhatsAppService } from './whatsapp.service';
+import { MaintenanceModule } from '../maintenance/maintenance.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { WhatsAppService } from './whatsapp.service';
     ]),
     CustomersModule,
     VehiclesModule,
+    forwardRef(() => MaintenanceModule),
   ],
   controllers: [AppointmentsController],
   providers: [AppointmentsService, WhatsAppService],

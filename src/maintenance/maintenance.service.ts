@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Maintenance, MaintenanceDocument } from './schemas/maintenance.schema';
+import { Appointment, AppointmentDocument } from '../appointments/schemas/appointment.schema';
 import { CreateMaintenanceDto } from './dto/create-maintenance.dto';
 import { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
 import { AddItemUsedDto } from './dto/add-item-used.dto';
@@ -14,6 +15,7 @@ import { I18nContext } from 'nestjs-i18n';
 export class MaintenanceService {
   constructor(
     @InjectModel(Maintenance.name) private maintenanceModel: Model<MaintenanceDocument>,
+    @InjectModel(Appointment.name) private appointmentModel: Model<AppointmentDocument>,
     private readonly customersService: CustomersService,
     private readonly vehiclesService: VehiclesService,
     private readonly inventoryService: InventoryService,
@@ -30,15 +32,30 @@ export class MaintenanceService {
       throw new BadRequestException(i18n ? i18n.t('common.errors.vehicleNotBelongToCustomer') : 'El vehículo no pertenece al cliente especificado');
     }
 
+    // If an appointmentId is supplied, validate it exists
+    if (createMaintenanceDto.appointmentId) {
+      const appt = await this.appointmentModel.findById(createMaintenanceDto.appointmentId).exec();
+      if (!appt) {
+        const i18n = I18nContext.current();
+        throw new BadRequestException(i18n ? i18n.t('common.errors.appointmentNotFound') : 'La cita especificada no fue encontrada');
+      }
+    }
+
+    // Determine initial status:
+    //  - Walk-in (no appointment) → not_started (entra directo al taller)
+    //  - Linked to appointment   → awaiting_appointment (limbo hasta que la cita se complete)
+    const initialStatus = createMaintenanceDto.appointmentId ? 'awaiting_appointment' : 'not_started';
+
     const maintenance = new this.maintenanceModel({
       ...createMaintenanceDto,
       customer: createMaintenanceDto.customerId as any,
       vehicle: createMaintenanceDto.vehicleId as any,
+      appointment: createMaintenanceDto.appointmentId ? (createMaintenanceDto.appointmentId as any) : null,
       createdBy: userId as any,
-      status: 'not_started',
+      status: initialStatus,
     });
 
-    return (await maintenance.save()).populate(['customer', 'vehicle', 'createdBy']);
+    return (await maintenance.save()).populate(['customer', 'vehicle', 'createdBy', 'appointment']);
   }
 
   async findAll(filters: { customerId?: string; status?: string }): Promise<MaintenanceDocument[]> {
@@ -76,6 +93,16 @@ export class MaintenanceService {
     const order = await this.findById(id);
 
     if (updateMaintenanceDto.status) {
+      // Block manual status changes while the appointment hasn't been completed yet
+      if (order.status === 'awaiting_appointment' && updateMaintenanceDto.status !== 'awaiting_appointment') {
+        const i18n = I18nContext.current();
+        throw new BadRequestException(
+          i18n
+            ? i18n.t('common.errors.maintenanceAwaitingAppointment')
+            : 'No se puede cambiar el estado del mantenimiento hasta que la cita asociada sea completada',
+        );
+      }
+
       order.status = updateMaintenanceDto.status;
       if (updateMaintenanceDto.status === 'completed' || updateMaintenanceDto.status === 'delivered') {
         order.endDate = new Date();
@@ -91,7 +118,23 @@ export class MaintenanceService {
     }
 
     const saved = await order.save();
-    return saved.populate(['customer', 'vehicle', 'createdBy']);
+    return saved.populate(['customer', 'vehicle', 'createdBy', 'appointment']);
+  }
+
+  /**
+   * Called by AppointmentsService when a cita is marked as `completed`.
+   * Finds any maintenance in `awaiting_appointment` linked to this appointment
+   * and promotes it to `not_started` so workshop staff can begin.
+   */
+  async activateFromAppointment(appointmentId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(appointmentId)) return;
+
+    await this.maintenanceModel
+      .updateMany(
+        { appointment: appointmentId, status: 'awaiting_appointment' } as any,
+        { $set: { status: 'not_started' } },
+      )
+      .exec();
   }
 
   async addItemUsed(id: string, addItemUsedDto: AddItemUsedDto, userId: string): Promise<MaintenanceDocument> {

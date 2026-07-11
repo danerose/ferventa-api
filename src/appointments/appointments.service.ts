@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, OnModuleInit, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Appointment, AppointmentDocument } from './schemas/appointment.schema';
@@ -9,6 +9,7 @@ import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { CustomersService } from '../customers/customers.service';
 import { VehiclesService } from '../vehicles/vehicles.service';
 import { WhatsAppService } from './whatsapp.service';
+import { MaintenanceService } from '../maintenance/maintenance.service';
 import { I18nContext } from 'nestjs-i18n';
 
 @Injectable()
@@ -20,6 +21,8 @@ export class AppointmentsService implements OnModuleInit {
     private readonly customersService: CustomersService,
     private readonly vehiclesService: VehiclesService,
     private readonly whatsAppService: WhatsAppService,
+    @Inject(forwardRef(() => MaintenanceService))
+    private readonly maintenanceService: MaintenanceService,
   ) { }
 
   async onModuleInit() {
@@ -287,7 +290,14 @@ export class AppointmentsService implements OnModuleInit {
     if (updateAppointmentDto.notes !== undefined) appointment.notes = updateAppointmentDto.notes;
     if (updateAppointmentDto.branchName !== undefined) appointment.branchName = updateAppointmentDto.branchName;
 
-    return (await appointment.save()).populate('customer');
+    const saved = await appointment.save();
+
+    // When an appointment is marked as completed, activate any linked maintenance orders
+    if (updateAppointmentDto.status === 'completed') {
+      await this.maintenanceService.activateFromAppointment(id);
+    }
+
+    return saved.populate('customer');
   }
 
   async remove(id: string): Promise<void> {

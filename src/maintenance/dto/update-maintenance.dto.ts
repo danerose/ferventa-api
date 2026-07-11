@@ -5,10 +5,10 @@ import { i18nValidationMessage } from 'nestjs-i18n';
 export class UpdateMaintenanceDto {
   @ApiPropertyOptional({
     example: 'in_progress',
-    enum: ['not_started', 'in_progress', 'completed', 'delivered'],
-    description: 'Estado de la orden',
+    enum: ['awaiting_appointment', 'not_started', 'in_progress', 'completed', 'delivered'],
+    description: 'Estado de la orden. awaiting_appointment = esperando que se complete la cita (solo admin puede revertir manualmente)',
   })
-  @IsEnum(['not_started', 'in_progress', 'completed', 'delivered'], {
+  @IsEnum(['awaiting_appointment', 'not_started', 'in_progress', 'completed', 'delivered'], {
     message: i18nValidationMessage('validation.isEnum'),
   })
   @IsOptional()

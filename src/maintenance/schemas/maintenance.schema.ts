@@ -4,6 +4,7 @@ import { Customer } from '../../customers/schemas/customer.schema';
 import { Vehicle } from '../../vehicles/schemas/vehicle.schema';
 import { Product } from '../../inventory/schemas/product.schema';
 import { User } from '../../users/schemas/user.schema';
+import { Appointment } from '../../appointments/schemas/appointment.schema';
 
 export type MaintenanceDocument = Maintenance & Document;
 
@@ -48,14 +49,25 @@ export class Maintenance {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Vehicle', required: true, index: true })
   vehicle: Vehicle;
 
+  /**
+   * awaiting_appointment — cita aún no completada; el mantenimiento está en "limbo".
+   * not_started          — cita completada, el vehículo está en cola de taller.
+   * in_progress          — el mecánico ha iniciado el trabajo.
+   * completed            — trabajo terminado, listo para entrega.
+   * delivered            — vehículo entregado al cliente.
+   */
   @Prop({
     required: true,
     type: String,
-    enum: ['not_started', 'in_progress', 'completed', 'delivered'],
-    default: 'not_started',
+    enum: ['awaiting_appointment', 'not_started', 'in_progress', 'completed', 'delivered'],
+    default: 'awaiting_appointment',
     index: true,
   })
   status: string;
+
+  /** Cita agendada que originó este mantenimiento (opcional para walk-ins). */
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Appointment', required: false, default: null, index: true })
+  appointment?: Appointment | null;
 
   @Prop({ required: true, type: Number, default: 0 })
   laborCost: number;
