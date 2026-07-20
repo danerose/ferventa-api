@@ -3,7 +3,7 @@ import { Document, Schema as MongooseSchema } from 'mongoose';
 import { Brand } from './brand.schema';
 import { Category } from './category.schema';
 import { Provider } from './provider.schema';
-
+import { Branch } from '../../branches/schemas/branch.schema';
 export type ProductDocument = Product & Document;
 
 @Schema({ timestamps: true })
@@ -16,6 +16,9 @@ export class Product {
 
   @Prop({ type: String, default: '' })
   description: string;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Branch', required: true })
+  branch: Branch | any;
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Brand', required: true })
   brand: Brand;

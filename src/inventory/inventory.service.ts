@@ -25,27 +25,27 @@ export class InventoryService {
   ) {}
 
   // --- BRAND CRUD ---
-  async createBrand(createBrandDto: CreateBrandDto): Promise<Brand> {
-    const existing = await this.brandModel.findOne({ name: createBrandDto.name.trim() });
+  async createBrand(createBrandDto: CreateBrandDto, branchId: string): Promise<Brand> {
+    const existing = await this.brandModel.findOne({ name: createBrandDto.name.trim(), branch: branchId });
     if (existing) {
       const i18n = I18nContext.current();
       throw new BadRequestException(i18n ? i18n.t('common.errors.brandRegistered') : 'Esta marca ya está registrada');
     }
-    return this.brandModel.create({ name: createBrandDto.name.trim() });
+    return this.brandModel.create({ name: createBrandDto.name.trim(), branch: branchId });
   }
 
-  async findAllBrands(): Promise<Brand[]> {
-    return this.brandModel.find().sort({ name: 1 }).exec();
+  async findAllBrands(branchId: string): Promise<Brand[]> {
+    return this.brandModel.find({ branch: branchId }).sort({ name: 1 }).exec();
   }
 
-  async deleteBrand(id: string): Promise<void> {
+  async deleteBrand(id: string, branchId: string): Promise<void> {
     // Check if any product is using this brand
-    const productsUsing = await this.productModel.countDocuments({ brand: id as any });
+    const productsUsing = await this.productModel.countDocuments({ brand: id as any, branch: branchId });
     if (productsUsing > 0) {
       const i18n = I18nContext.current();
       throw new BadRequestException(i18n ? i18n.t('common.errors.brandHasProducts') : 'No se puede eliminar la marca porque hay productos asociados a ella');
     }
-    const res = await this.brandModel.findByIdAndDelete(id);
+    const res = await this.brandModel.findOneAndDelete({ _id: id, branch: branchId });
     if (!res) {
       const i18n = I18nContext.current();
       throw new NotFoundException(i18n ? i18n.t('common.errors.brandNotFound') : 'Marca no encontrada');
@@ -53,26 +53,26 @@ export class InventoryService {
   }
 
   // --- CATEGORY CRUD ---
-  async createCategory(createCategoryDto: CreateCategoryDto): Promise<Category> {
-    const existing = await this.categoryModel.findOne({ name: createCategoryDto.name.trim() });
+  async createCategory(createCategoryDto: CreateCategoryDto, branchId: string): Promise<Category> {
+    const existing = await this.categoryModel.findOne({ name: createCategoryDto.name.trim(), branch: branchId });
     if (existing) {
       const i18n = I18nContext.current();
       throw new BadRequestException(i18n ? i18n.t('common.errors.categoryRegistered') : 'Esta categoría ya está registrada');
     }
-    return this.categoryModel.create({ name: createCategoryDto.name.trim() });
+    return this.categoryModel.create({ name: createCategoryDto.name.trim(), branch: branchId });
   }
 
-  async findAllCategories(): Promise<Category[]> {
-    return this.categoryModel.find().sort({ name: 1 }).exec();
+  async findAllCategories(branchId: string): Promise<Category[]> {
+    return this.categoryModel.find({ branch: branchId }).sort({ name: 1 }).exec();
   }
 
-  async deleteCategory(id: string): Promise<void> {
-    const productsUsing = await this.productModel.countDocuments({ category: id as any });
+  async deleteCategory(id: string, branchId: string): Promise<void> {
+    const productsUsing = await this.productModel.countDocuments({ category: id as any, branch: branchId });
     if (productsUsing > 0) {
       const i18n = I18nContext.current();
       throw new BadRequestException(i18n ? i18n.t('common.errors.categoryHasProducts') : 'No se puede eliminar la categoría porque hay productos asociados a ella');
     }
-    const res = await this.categoryModel.findByIdAndDelete(id);
+    const res = await this.categoryModel.findOneAndDelete({ _id: id, branch: branchId });
     if (!res) {
       const i18n = I18nContext.current();
       throw new NotFoundException(i18n ? i18n.t('common.errors.categoryNotFound') : 'Categoría no encontrada');
@@ -80,16 +80,16 @@ export class InventoryService {
   }
 
   // --- PROVIDER CRUD ---
-  async createProvider(createProviderDto: CreateProviderDto): Promise<Provider> {
-    return this.providerModel.create(createProviderDto);
+  async createProvider(createProviderDto: CreateProviderDto, branchId: string): Promise<Provider> {
+    return this.providerModel.create({ ...createProviderDto, branch: branchId });
   }
 
-  async findAllProviders(): Promise<Provider[]> {
-    return this.providerModel.find().sort({ name: 1 }).exec();
+  async findAllProviders(branchId: string): Promise<Provider[]> {
+    return this.providerModel.find({ branch: branchId }).sort({ name: 1 }).exec();
   }
 
-  async updateProvider(id: string, createProviderDto: CreateProviderDto): Promise<Provider> {
-    const provider = await this.providerModel.findByIdAndUpdate(id, createProviderDto, { new: true });
+  async updateProvider(id: string, branchId: string, createProviderDto: CreateProviderDto): Promise<Provider> {
+    const provider = await this.providerModel.findOneAndUpdate({ _id: id, branch: branchId }, createProviderDto, { new: true });
     if (!provider) {
       const i18n = I18nContext.current();
       throw new NotFoundException(i18n ? i18n.t('common.errors.providerNotFound') : 'Proveedor no encontrado');
@@ -97,13 +97,13 @@ export class InventoryService {
     return provider;
   }
 
-  async deleteProvider(id: string): Promise<void> {
-    const productsUsing = await this.productModel.countDocuments({ provider: id as any });
+  async deleteProvider(id: string, branchId: string): Promise<void> {
+    const productsUsing = await this.productModel.countDocuments({ provider: id as any, branch: branchId });
     if (productsUsing > 0) {
       const i18n = I18nContext.current();
       throw new BadRequestException(i18n ? i18n.t('common.errors.providerHasProducts') : 'No se puede eliminar el proveedor porque hay productos asociados a él');
     }
-    const res = await this.providerModel.findByIdAndDelete(id);
+    const res = await this.providerModel.findOneAndDelete({ _id: id, branch: branchId });
     if (!res) {
       const i18n = I18nContext.current();
       throw new NotFoundException(i18n ? i18n.t('common.errors.providerNotFound') : 'Proveedor no encontrado');
@@ -111,27 +111,27 @@ export class InventoryService {
   }
 
   // --- PRODUCT CRUD ---
-  async createProduct(createProductDto: CreateProductDto): Promise<ProductDocument> {
-    const existing = await this.productModel.findOne({ sku: createProductDto.sku.toUpperCase() });
+  async createProduct(createProductDto: CreateProductDto, branchId: string): Promise<ProductDocument> {
+    const existing = await this.productModel.findOne({ sku: createProductDto.sku.toUpperCase(), branch: branchId });
     if (existing) {
       const i18n = I18nContext.current();
       throw new BadRequestException(i18n ? i18n.t('common.errors.skuRegistered') : 'Ya existe un producto registrado con este SKU');
     }
 
     // Verify brand, category, and provider exist
-    const brandExists = await this.brandModel.exists({ _id: createProductDto.brandId });
+    const brandExists = await this.brandModel.exists({ _id: createProductDto.brandId, branch: branchId });
     if (!brandExists) {
       const i18n = I18nContext.current();
       throw new NotFoundException(i18n ? i18n.t('common.errors.brandNotFound') : 'La marca especificada no existe');
     }
 
-    const categoryExists = await this.categoryModel.exists({ _id: createProductDto.categoryId });
+    const categoryExists = await this.categoryModel.exists({ _id: createProductDto.categoryId, branch: branchId });
     if (!categoryExists) {
       const i18n = I18nContext.current();
       throw new NotFoundException(i18n ? i18n.t('common.errors.categoryNotFound') : 'La categoría especificada no existe');
     }
 
-    const providerExists = await this.providerModel.exists({ _id: createProductDto.providerId });
+    const providerExists = await this.providerModel.exists({ _id: createProductDto.providerId, branch: branchId });
     if (!providerExists) {
       const i18n = I18nContext.current();
       throw new NotFoundException(i18n ? i18n.t('common.errors.providerNotFound') : 'El proveedor especificado no existe');
@@ -140,6 +140,7 @@ export class InventoryService {
     const product = new this.productModel({
       ...createProductDto,
       sku: createProductDto.sku.toUpperCase(),
+      branch: branchId,
       brand: createProductDto.brandId,
       category: createProductDto.categoryId,
       provider: createProductDto.providerId,
@@ -148,8 +149,8 @@ export class InventoryService {
     return (await product.save()).populate(['brand', 'category', 'provider']);
   }
 
-  async findAllProducts(filters: { search?: string; categoryId?: string; brandId?: string }): Promise<ProductDocument[]> {
-    const query: any = { isActive: true };
+  async findAllProducts(branchId: string, filters: { search?: string; categoryId?: string; brandId?: string }): Promise<ProductDocument[]> {
+    const query: any = { isActive: true, branch: branchId };
 
     if (filters.categoryId) {
       query.category = filters.categoryId;
@@ -172,8 +173,8 @@ export class InventoryService {
       .exec();
   }
 
-  async findProductById(id: string): Promise<ProductDocument> {
-    const product = await this.productModel.findById(id).populate(['brand', 'category', 'provider']).exec();
+  async findProductById(id: string, branchId: string): Promise<ProductDocument> {
+    const product = await this.productModel.findOne({ _id: id, branch: branchId }).populate(['brand', 'category', 'provider']).exec();
     if (!product) {
       const i18n = I18nContext.current();
       throw new NotFoundException(i18n ? i18n.t('common.errors.productNotFound') : 'Producto no encontrado');
@@ -181,8 +182,8 @@ export class InventoryService {
     return product;
   }
 
-  async findProductBySku(sku: string): Promise<ProductDocument> {
-    const product = await this.productModel.findOne({ sku: sku.toUpperCase() }).populate(['brand', 'category', 'provider']).exec();
+  async findProductBySku(sku: string, branchId: string): Promise<ProductDocument> {
+    const product = await this.productModel.findOne({ sku: sku.toUpperCase(), branch: branchId }).populate(['brand', 'category', 'provider']).exec();
     if (!product) {
       const i18n = I18nContext.current();
       throw new NotFoundException(i18n ? i18n.t('common.errors.productSkuNotFound') : 'Producto con SKU especificado no encontrado');
@@ -190,11 +191,11 @@ export class InventoryService {
     return product;
   }
 
-  async updateProduct(id: string, updateProductDto: UpdateProductDto): Promise<ProductDocument> {
-    const product = await this.findProductById(id);
+  async updateProduct(id: string, branchId: string, updateProductDto: UpdateProductDto): Promise<ProductDocument> {
+    const product = await this.findProductById(id, branchId);
 
     if (updateProductDto.brandId) {
-      const brandExists = await this.brandModel.exists({ _id: updateProductDto.brandId });
+      const brandExists = await this.brandModel.exists({ _id: updateProductDto.brandId, branch: branchId });
       if (!brandExists) {
         const i18n = I18nContext.current();
         throw new NotFoundException(i18n ? i18n.t('common.errors.brandNotFound') : 'La marca especificada no existe');
@@ -203,7 +204,7 @@ export class InventoryService {
     }
 
     if (updateProductDto.categoryId) {
-      const categoryExists = await this.categoryModel.exists({ _id: updateProductDto.categoryId });
+      const categoryExists = await this.categoryModel.exists({ _id: updateProductDto.categoryId, branch: branchId });
       if (!categoryExists) {
         const i18n = I18nContext.current();
         throw new NotFoundException(i18n ? i18n.t('common.errors.categoryNotFound') : 'La categoría especificada no existe');
@@ -212,7 +213,7 @@ export class InventoryService {
     }
 
     if (updateProductDto.providerId) {
-      const providerExists = await this.providerModel.exists({ _id: updateProductDto.providerId });
+      const providerExists = await this.providerModel.exists({ _id: updateProductDto.providerId, branch: branchId });
       if (!providerExists) {
         const i18n = I18nContext.current();
         throw new NotFoundException(i18n ? i18n.t('common.errors.providerNotFound') : 'El proveedor especificado no existe');
@@ -236,8 +237,8 @@ export class InventoryService {
     return saved.populate(['brand', 'category', 'provider']);
   }
 
-  async deleteProduct(id: string): Promise<void> {
-    const product = await this.findProductById(id);
+  async deleteProduct(id: string, branchId: string): Promise<void> {
+    const product = await this.findProductById(id, branchId);
     product.isActive = false;
     await product.save();
   }
@@ -246,8 +247,9 @@ export class InventoryService {
   async registerMovement(
     createStockMovementDto: CreateStockMovementDto,
     userId: string,
+    branchId: string,
   ): Promise<StockMovementDocument> {
-    const product = await this.productModel.findById(createStockMovementDto.productId);
+    const product = await this.productModel.findOne({ _id: createStockMovementDto.productId, branch: branchId });
     if (!product) {
       const i18n = I18nContext.current();
       throw new NotFoundException(i18n ? i18n.t('common.errors.productNotFound') : 'Producto no encontrado');
@@ -283,6 +285,7 @@ export class InventoryService {
 
     const movement = new this.movementModel({
       product: product._id,
+      branch: branchId,
       type,
       quantity,
       reason,
@@ -295,17 +298,17 @@ export class InventoryService {
     ]);
   }
 
-  async findMovementsByProduct(productId: string): Promise<StockMovementDocument[]> {
+  async findMovementsByProduct(productId: string, branchId: string): Promise<StockMovementDocument[]> {
     return this.movementModel
-      .find({ product: productId as any })
+      .find({ product: productId as any, branch: branchId })
       .populate('performedBy', 'name email')
       .sort({ createdAt: -1 })
       .exec();
   }
 
-  async findAllMovements(): Promise<StockMovementDocument[]> {
+  async findAllMovements(branchId: string): Promise<StockMovementDocument[]> {
     return this.movementModel
-      .find()
+      .find({ branch: branchId })
       .populate('product', 'sku name')
       .populate('performedBy', 'name email')
       .sort({ createdAt: -1 })

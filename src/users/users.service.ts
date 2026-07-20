@@ -95,8 +95,22 @@ export class UsersService implements OnModuleInit {
     return user;
   }
 
-  async create(createUserDto: CreateUserDto): Promise<UserDocument> {
-    const existing = await this.findByEmail(createUserDto.email);
+  async create(createUserDto: CreateUserDto): Promise<{ user: UserDocument; formattedText: string }> {
+    let { email, password } = createUserDto;
+    
+    // Auto-generate email if not provided
+    if (!email) {
+      const cleanName = createUserDto.name.toLowerCase().trim().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      email = `${cleanName}${randomNum}@ferventa.com`;
+    }
+
+    // Auto-generate password if not provided
+    if (!password) {
+      password = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-2).toUpperCase() + '!';
+    }
+
+    const existing = await this.findByEmail(email);
     if (existing) {
       const i18n = I18nContext.current();
       const message = i18n ? i18n.t('common.errors.emailRegistered') : 'El correo ya está registrado';
@@ -109,15 +123,29 @@ export class UsersService implements OnModuleInit {
       throw new NotFoundException(i18n ? i18n.t('common.errors.roleNotFound') : 'El rol especificado no existe');
     }
 
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
     const createdUser = new this.userModel({
       ...createUserDto,
+      email,
       password: hashedPassword,
       role: role._id,
+      branches: createUserDto.branches || [],
+      phone: createUserDto.phone,
     });
 
     const saved = await createdUser.save();
-    return saved.populate('role');
+    const populated = await saved.populate('role');
+
+    const formattedText = `¡Hola ${populated.name}! Tu cuenta ha sido creada exitosamente.
+Detalles de acceso:
+- Correo: ${email}
+- Teléfono: ${populated.phone}
+- Contraseña temporal: ${password}
+
+Puedes iniciar sesión y cambiar tu contraseña en el siguiente enlace:
+🔗 https://app.ferventa.com/reset-password`;
+
+    return { user: populated, formattedText };
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<UserDocument> {

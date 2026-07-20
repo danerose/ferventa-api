@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
 import { Customer } from '../../customers/schemas/customer.schema';
-
+import { Branch } from '../../branches/schemas/branch.schema';
 export type AppointmentDocument = Appointment & Document;
 
 @Schema({ _id: false })
@@ -64,6 +64,9 @@ export class Appointment {
 
   @Prop({ type: String, trim: true })
   branchName?: string;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Branch', required: true })
+  branch: Branch | any;
 }
 
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);

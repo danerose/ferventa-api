@@ -84,6 +84,8 @@
     "vehicleNotFound": "Vehicle not found",
     "vehicleSerialNumberNotFound": "Vehicle with that serial number (last 4 digits) not found",
     "insufficientStockProduct": "Insufficient stock for {name}. Available: {stock}, Required: {required}",
-    "onlyImagesAllowed": "Only JPG, JPEG or PNG files are allowed"
+    "onlyImagesAllowed": "Only JPG, JPEG or PNG files are allowed",
+    "branchIdRequired": "The x-branch-id header is required for this request",
+    "branchAccessDenied": "You do not have access to this branch"
   }
 }

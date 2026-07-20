@@ -18,4 +18,9 @@ export class SignupDto {
   @MinLength(6, { message: i18nValidationMessage('validation.minLength') })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   password: string;
+
+  @ApiProperty({ example: '8118765432', description: 'Número de teléfono del usuario' })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
+  phone: string;
 }

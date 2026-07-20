@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Schema as MongooseSchema } from 'mongoose';
+import { Branch } from '../../branches/schemas/branch.schema';
 
 export type ProviderDocument = Provider & Document;
 
@@ -13,6 +14,9 @@ export class Provider {
 
   @Prop({ type: String, default: '' })
   email: string;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Branch', required: true })
+  branch: Branch | any;
 }
 
 export const ProviderSchema = SchemaFactory.createForClass(Provider);

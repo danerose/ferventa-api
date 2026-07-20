@@ -21,12 +21,12 @@ export class MaintenanceService {
     private readonly inventoryService: InventoryService,
   ) {}
 
-  async create(createMaintenanceDto: CreateMaintenanceDto, userId: string): Promise<MaintenanceDocument> {
+  async create(createMaintenanceDto: CreateMaintenanceDto, userId: string, branchId: string): Promise<MaintenanceDocument> {
     // Verify customer
-    await this.customersService.findById(createMaintenanceDto.customerId);
+    await this.customersService.findById(createMaintenanceDto.customerId, branchId);
 
     // Verify vehicle & ensure it belongs to the customer
-    const vehicle = await this.vehiclesService.findById(createMaintenanceDto.vehicleId);
+    const vehicle = await this.vehiclesService.findById(createMaintenanceDto.vehicleId, branchId);
     if ((vehicle.customer as any)._id.toString() !== createMaintenanceDto.customerId) {
       const i18n = I18nContext.current();
       throw new BadRequestException(i18n ? i18n.t('common.errors.vehicleNotBelongToCustomer') : 'El vehículo no pertenece al cliente especificado');
@@ -34,7 +34,7 @@ export class MaintenanceService {
 
     // If an appointmentId is supplied, validate it exists
     if (createMaintenanceDto.appointmentId) {
-      const appt = await this.appointmentModel.findById(createMaintenanceDto.appointmentId).exec();
+      const appt = await this.appointmentModel.findOne({ _id: createMaintenanceDto.appointmentId, branch: branchId }).exec();
       if (!appt) {
         const i18n = I18nContext.current();
         throw new BadRequestException(i18n ? i18n.t('common.errors.appointmentNotFound') : 'La cita especificada no fue encontrada');
@@ -48,6 +48,7 @@ export class MaintenanceService {
 
     const maintenance = new this.maintenanceModel({
       ...createMaintenanceDto,
+      branch: branchId,
       customer: createMaintenanceDto.customerId as any,
       vehicle: createMaintenanceDto.vehicleId as any,
       appointment: createMaintenanceDto.appointmentId ? (createMaintenanceDto.appointmentId as any) : null,
@@ -58,8 +59,8 @@ export class MaintenanceService {
     return (await maintenance.save()).populate(['customer', 'vehicle', 'createdBy', 'appointment']);
   }
 
-  async findAll(filters: { customerId?: string; status?: string }): Promise<MaintenanceDocument[]> {
-    const query: any = {};
+  async findAll(branchId: string, filters: { customerId?: string; status?: string }): Promise<MaintenanceDocument[]> {
+    const query: any = { branch: branchId };
     if (filters.customerId) {
       query.customer = filters.customerId;
     }
@@ -73,13 +74,13 @@ export class MaintenanceService {
       .exec();
   }
 
-  async findById(id: string): Promise<MaintenanceDocument> {
+  async findById(id: string, branchId: string): Promise<MaintenanceDocument> {
     if (!Types.ObjectId.isValid(id)) {
       const i18n = I18nContext.current();
       throw new BadRequestException(i18n ? i18n.t('common.errors.invalidMaintenanceId') : 'ID de orden de mantenimiento inválido');
     }
     const order = await this.maintenanceModel
-      .findById(id)
+      .findOne({ _id: id, branch: branchId })
       .populate(['customer', 'vehicle', 'createdBy', 'itemsUsed.product'])
       .exec();
     if (!order) {
@@ -89,8 +90,8 @@ export class MaintenanceService {
     return order;
   }
 
-  async update(id: string, updateMaintenanceDto: UpdateMaintenanceDto): Promise<MaintenanceDocument> {
-    const order = await this.findById(id);
+  async update(id: string, branchId: string, updateMaintenanceDto: UpdateMaintenanceDto): Promise<MaintenanceDocument> {
+    const order = await this.findById(id, branchId);
 
     if (updateMaintenanceDto.status) {
       // Block manual status changes while the appointment hasn't been completed yet
@@ -126,12 +127,12 @@ export class MaintenanceService {
    * Finds any maintenance in `awaiting_appointment` linked to this appointment
    * and promotes it to `not_started` so workshop staff can begin.
    */
-  async activateFromAppointment(appointmentId: string): Promise<void> {
+  async activateFromAppointment(appointmentId: string, branchId: string): Promise<void> {
     if (!Types.ObjectId.isValid(appointmentId)) return;
 
     await this.maintenanceModel
       .updateMany(
-        { appointment: appointmentId, status: 'awaiting_appointment' } as any,
+        { appointment: appointmentId, status: 'awaiting_appointment', branch: branchId } as any,
         { $set: { status: 'not_started' } },
       )
       .exec();
@@ -146,8 +147,10 @@ export class MaintenanceService {
     customerId: string,
     vehicleId: string,
     serviceRequested: string,
+    branchId: string,
   ): Promise<MaintenanceDocument> {
     const maintenance = new this.maintenanceModel({
+      branch: branchId,
       customer: customerId as any,
       vehicle: vehicleId as any,
       appointment: appointmentId as any,
@@ -159,8 +162,8 @@ export class MaintenanceService {
     return maintenance.save();
   }
 
-  async addItemUsed(id: string, addItemUsedDto: AddItemUsedDto, userId: string): Promise<MaintenanceDocument> {
-    const order = await this.findById(id);
+  async addItemUsed(id: string, branchId: string, addItemUsedDto: AddItemUsedDto, userId: string): Promise<MaintenanceDocument> {
+    const order = await this.findById(id, branchId);
 
     if (order.status === 'delivered') {
       const i18n = I18nContext.current();
@@ -168,7 +171,7 @@ export class MaintenanceService {
     }
 
     // Find product to check stock & prices
-    const product = await this.inventoryService.findProductById(addItemUsedDto.productId);
+    const product = await this.inventoryService.findProductById(addItemUsedDto.productId, branchId);
 
     // Register stock movement (which deducts the stock and throws stock errors if insufficient)
     await this.inventoryService.registerMovement(
@@ -179,6 +182,7 @@ export class MaintenanceService {
         reason: `Consumo en orden de mantenimiento #${order._id}`,
       },
       userId,
+      branchId,
     );
 
     // Add product to maintenance items used (with snapshot prices)
@@ -195,8 +199,8 @@ export class MaintenanceService {
     return saved.populate(['customer', 'vehicle', 'createdBy', 'itemsUsed.product']);
   }
 
-  async addEvidencePhotos(id: string, stage: string, photoUrls: string[]): Promise<MaintenanceDocument> {
-    const order = await this.findById(id);
+  async addEvidencePhotos(id: string, branchId: string, stage: string, photoUrls: string[]): Promise<MaintenanceDocument> {
+    const order = await this.findById(id, branchId);
 
     // Check if stage exists
     const stageIndex = order.evidencePhotos.findIndex((item) => item.stage.toLowerCase() === stage.toLowerCase());
@@ -221,16 +225,16 @@ export class MaintenanceService {
     return saved.populate(['customer', 'vehicle', 'createdBy']);
   }
 
-  async findClientView(serialOrPhone: string): Promise<MaintenanceDocument[]> {
-    const query: any = {};
+  async findClientView(serialOrPhone: string, branchId: string): Promise<MaintenanceDocument[]> {
+    const query: any = { branch: branchId };
     const input = serialOrPhone.trim();
 
     if (Types.ObjectId.isValid(input)) {
       query._id = input;
     } else {
       // Find matching vehicles or customers first
-      const vehicles = await this.vehiclesService.findAll({ search: input });
-      const customers = await this.customersService.findAll(input);
+      const vehicles = await this.vehiclesService.findAll(branchId, { search: input });
+      const customers = await this.customersService.findAll(branchId, input);
 
       const vehicleIds = vehicles.map((v) => v._id);
       const customerIds = customers.map((c) => c._id);
@@ -255,12 +259,12 @@ export class MaintenanceService {
       .exec();
   }
 
-  async remove(id: string): Promise<void> {
-    const order = await this.findById(id);
+  async remove(id: string, branchId: string): Promise<void> {
+    const order = await this.findById(id, branchId);
     if (order.status === 'in_progress' || order.status === 'completed') {
       const i18n = I18nContext.current();
       throw new BadRequestException(i18n ? i18n.t('common.errors.maintenanceCannotDelete') : 'No se puede eliminar una orden de servicio en curso o completada');
     }
-    await this.maintenanceModel.findByIdAndDelete(id).exec();
+    await this.maintenanceModel.findOneAndDelete({ _id: id, branch: branchId }).exec();
   }
 }

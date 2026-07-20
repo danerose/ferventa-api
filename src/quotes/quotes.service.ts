@@ -16,9 +16,9 @@ export class QuotesService {
     private readonly inventoryService: InventoryService,
   ) {}
 
-  async create(createQuoteDto: CreateQuoteDto, userId: string): Promise<QuoteDocument> {
+  async create(createQuoteDto: CreateQuoteDto, userId: string, branchId: string): Promise<QuoteDocument> {
     // 1. Verify customer
-    await this.customersService.findById(createQuoteDto.customerId);
+    await this.customersService.findById(createQuoteDto.customerId, branchId);
 
     // 2. Fetch and snapshot items prices from Catalog
     const quoteItems: any[] = [];
@@ -26,7 +26,7 @@ export class QuotesService {
     let itemsDiscount = 0;
 
     for (const item of createQuoteDto.items) {
-      const product = await this.inventoryService.findProductById(item.productId);
+      const product = await this.inventoryService.findProductById(item.productId, branchId);
       if (!product.isActive) {
         const i18n = I18nContext.current();
         const message = i18n
@@ -76,13 +76,14 @@ export class QuotesService {
       validUntil,
       status: 'pending',
       createdBy: userId as any,
+      branch: branchId as any,
     });
 
     return (await quote.save()).populate(['customer', 'createdBy']);
   }
 
-  async findAll(filters: { customerId?: string; status?: string }): Promise<QuoteDocument[]> {
-    const query: any = {};
+  async findAll(branchId: string, filters: { customerId?: string; status?: string }): Promise<QuoteDocument[]> {
+    const query: any = { branch: branchId };
     if (filters.customerId) {
       query.customer = filters.customerId;
     }
@@ -96,13 +97,17 @@ export class QuotesService {
       .exec();
   }
 
-  async findById(id: string): Promise<QuoteDocument> {
+  async findById(id: string, branchId?: string): Promise<QuoteDocument> {
     if (!Types.ObjectId.isValid(id)) {
       const i18n = I18nContext.current();
       throw new BadRequestException(i18n ? i18n.t('common.errors.invalidQuoteId') : 'ID de cotización inválido');
     }
+    const query: any = { _id: id };
+    if (branchId) {
+      query.branch = branchId;
+    }
     const quote = await this.quoteModel
-      .findById(id)
+      .findOne(query)
       .populate(['customer', 'createdBy', 'items.product'])
       .exec();
     if (!quote) {
@@ -112,8 +117,8 @@ export class QuotesService {
     return quote;
   }
 
-  async update(id: string, updateQuoteDto: UpdateQuoteDto): Promise<QuoteDocument> {
-    const quote = await this.findById(id);
+  async update(id: string, branchId: string, updateQuoteDto: UpdateQuoteDto): Promise<QuoteDocument> {
+    const quote = await this.findById(id, branchId);
 
     if (quote.status === 'converted_to_sale') {
       const i18n = I18nContext.current();
@@ -121,7 +126,7 @@ export class QuotesService {
     }
 
     if (updateQuoteDto.customerId) {
-      await this.customersService.findById(updateQuoteDto.customerId);
+      await this.customersService.findById(updateQuoteDto.customerId, branchId);
       quote.customer = updateQuoteDto.customerId as any;
     }
 
@@ -131,7 +136,7 @@ export class QuotesService {
       let itemsDiscount = 0;
 
       for (const item of updateQuoteDto.items) {
-        const product = await this.inventoryService.findProductById(item.productId);
+        const product = await this.inventoryService.findProductById(item.productId, branchId);
         const priceSnapshot = product.sellingPrice;
         const discount = item.discount || 0;
         

@@ -3,6 +3,7 @@ import { Document, Schema as MongooseSchema } from 'mongoose';
 import { Customer } from '../../customers/schemas/customer.schema';
 import { Product } from '../../inventory/schemas/product.schema';
 import { User } from '../../users/schemas/user.schema';
+import { Branch } from '../../branches/schemas/branch.schema';
 
 export type QuoteDocument = Quote & Document;
 
@@ -58,6 +59,9 @@ export class Quote {
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
   createdBy: User;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Branch', required: true })
+  branch: Branch | any;
 }
 
 export const QuoteSchema = SchemaFactory.createForClass(Quote);

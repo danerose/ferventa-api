@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
 import { Role } from './role.schema';
-
+import { Branch } from '../../branches/schemas/branch.schema';
 export type UserDocument = User & Document;
 
 @Schema({ timestamps: true })
@@ -17,6 +17,12 @@ export class User {
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Role', required: true })
   role: Role;
+
+  @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'Branch' }], default: [] })
+  branches: Branch[];
+
+  @Prop({ required: true, trim: true })
+  phone: string;
 
   @Prop({ type: Boolean, default: true })
   isActive: boolean;

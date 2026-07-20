@@ -17,9 +17,12 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
+import { BranchGuard } from '../common/guards/branch.guard';
+import { BranchId } from '../common/decorators/branch-id.decorator';
+
 @ApiTags('Cotizaciones')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
 @Controller('quotes')
 export class QuotesController {
   constructor(private readonly quotesService: QuotesService) {}
@@ -29,10 +32,11 @@ export class QuotesController {
   @ApiOperation({ summary: 'Crear una nueva cotización' })
   @ApiResponse({ status: 201, description: 'Cotización creada correctamente.' })
   create(
+    @BranchId() branchId: string,
     @Body() createQuoteDto: CreateQuoteDto,
     @CurrentUser('_id') userId: string,
   ) {
-    return this.quotesService.create(createQuoteDto, userId);
+    return this.quotesService.create(createQuoteDto, userId, branchId);
   }
 
   @Get()
@@ -41,23 +45,24 @@ export class QuotesController {
   @ApiQuery({ name: 'customerId', required: false, description: 'Filtrar por cliente ID' })
   @ApiQuery({ name: 'status', required: false, description: 'Filtrar por estado' })
   findAll(
+    @BranchId() branchId: string,
     @Query('customerId') customerId?: string,
     @Query('status') status?: string,
   ) {
-    return this.quotesService.findAll({ customerId, status });
+    return this.quotesService.findAll(branchId, { customerId, status });
   }
 
   @Get(':id')
   @Roles('admin', 'seller')
   @ApiOperation({ summary: 'Obtener detalle de una cotización por ID' })
-  findOne(@Param('id') id: string) {
-    return this.quotesService.findById(id);
+  findOne(@BranchId() branchId: string, @Param('id') id: string) {
+    return this.quotesService.findById(id, branchId);
   }
 
   @Patch(':id')
   @Roles('admin', 'seller')
   @ApiOperation({ summary: 'Actualizar una cotización (Siempre que no esté ya vendida)' })
-  update(@Param('id') id: string, @Body() updateQuoteDto: UpdateQuoteDto) {
-    return this.quotesService.update(id, updateQuoteDto);
+  update(@BranchId() branchId: string, @Param('id') id: string, @Body() updateQuoteDto: UpdateQuoteDto) {
+    return this.quotesService.update(id, branchId, updateQuoteDto);
   }
 }

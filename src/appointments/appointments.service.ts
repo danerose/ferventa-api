@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, OnModuleInit, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Appointment, AppointmentDocument } from './schemas/appointment.schema';
@@ -13,7 +13,7 @@ import { MaintenanceService } from '../maintenance/maintenance.service';
 import { I18nContext } from 'nestjs-i18n';
 
 @Injectable()
-export class AppointmentsService implements OnModuleInit {
+export class AppointmentsService {
   constructor(
     @InjectModel(Appointment.name) private appointmentModel: Model<AppointmentDocument>,
     @InjectModel(WorkshopSchedule.name) private scheduleModel: Model<WorkshopScheduleDocument>,
@@ -25,24 +25,24 @@ export class AppointmentsService implements OnModuleInit {
     private readonly maintenanceService: MaintenanceService,
   ) { }
 
-  async onModuleInit() {
-    const count = await this.scheduleModel.countDocuments();
+  async createDefaultScheduleForBranch(branchId: string) {
+    const count = await this.scheduleModel.countDocuments({ branch: branchId });
     if (count === 0) {
       const defaultSchedules = [
-        { dayOfWeek: 0, isWorking: false, startTime: '09:00', endTime: '17:00' }, // Sunday
-        { dayOfWeek: 1, isWorking: true, startTime: '09:00', endTime: '17:00' },  // Monday
-        { dayOfWeek: 2, isWorking: true, startTime: '09:00', endTime: '17:00' },  // Tuesday
-        { dayOfWeek: 3, isWorking: true, startTime: '09:00', endTime: '17:00' },  // Wednesday
-        { dayOfWeek: 4, isWorking: true, startTime: '09:00', endTime: '17:00' },  // Thursday
-        { dayOfWeek: 5, isWorking: true, startTime: '09:00', endTime: '17:00' },  // Friday
-        { dayOfWeek: 6, isWorking: true, startTime: '09:00', endTime: '15:00' },  // Saturday
+        { dayOfWeek: 0, isWorking: false, startTime: '09:00', endTime: '17:00', branch: branchId },
+        { dayOfWeek: 1, isWorking: true, startTime: '09:00', endTime: '17:00', branch: branchId },
+        { dayOfWeek: 2, isWorking: true, startTime: '09:00', endTime: '17:00', branch: branchId },
+        { dayOfWeek: 3, isWorking: true, startTime: '09:00', endTime: '17:00', branch: branchId },
+        { dayOfWeek: 4, isWorking: true, startTime: '09:00', endTime: '17:00', branch: branchId },
+        { dayOfWeek: 5, isWorking: true, startTime: '09:00', endTime: '17:00', branch: branchId },
+        { dayOfWeek: 6, isWorking: true, startTime: '09:00', endTime: '15:00', branch: branchId },
       ];
       await this.scheduleModel.insertMany(defaultSchedules);
-      console.log('Seeded default workshop schedules.');
+      console.log(`Seeded default workshop schedules for branch ${branchId}.`);
     }
   }
 
-  async validateBookingTime(scheduledAt: Date, duration: number, excludeAppointmentId?: string): Promise<void> {
+  async validateBookingTime(scheduledAt: Date, duration: number, branchId: string, excludeAppointmentId?: string): Promise<void> {
     // Construct a "Fake UTC" date representing the current local time of the workshop
     const timeZone = process.env.WORKSHOP_TIMEZONE || Intl.DateTimeFormat().resolvedOptions().timeZone;
     const formatter = new Intl.DateTimeFormat('en-US', {
@@ -72,7 +72,7 @@ export class AppointmentsService implements OnModuleInit {
 
 
     // 1. Check if holiday
-    const isHoliday = await this.holidayModel.findOne({ date: dateStr }).exec();
+    const isHoliday = await this.holidayModel.findOne({ date: dateStr, branch: branchId }).exec();
     if (isHoliday) {
       const i18n = I18nContext.current();
       const message = i18n
@@ -83,7 +83,7 @@ export class AppointmentsService implements OnModuleInit {
 
     // 2. Check working day of week
     const dayOfWeek = scheduledAt.getUTCDay();
-    const schedule = await this.scheduleModel.findOne({ dayOfWeek }).exec();
+    const schedule = await this.scheduleModel.findOne({ dayOfWeek, branch: branchId }).exec();
     if (!schedule || !schedule.isWorking) {
       const i18n = I18nContext.current();
       throw new BadRequestException(i18n ? i18n.t('common.errors.nonWorkingDay') : 'El taller no labora en este día de la semana');
@@ -116,6 +116,7 @@ export class AppointmentsService implements OnModuleInit {
     dayEnd.setUTCHours(23, 59, 59, 999);
 
     const sameDayAppointments = await this.appointmentModel.find({
+      branch: branchId,
       status: { $in: ['pending', 'approved', 'rescheduled'] },
       _id: { $ne: excludeAppointmentId as any },
       scheduledAt: { $gte: dayStart, $lte: dayEnd },
@@ -142,20 +143,20 @@ export class AppointmentsService implements OnModuleInit {
     }
   }
 
-  async create(createAppointmentDto: CreateAppointmentDto): Promise<AppointmentDocument> {
+  async create(createAppointmentDto: CreateAppointmentDto, branchId: string): Promise<AppointmentDocument> {
     const scheduledAtDate = new Date(createAppointmentDto.scheduledAt);
     const duration = createAppointmentDto.duration || 15;
-    await this.validateBookingTime(scheduledAtDate, duration);
+    await this.validateBookingTime(scheduledAtDate, duration, branchId);
 
     let customerId = createAppointmentDto.customerId;
     const phone = createAppointmentDto.customerPhone.trim();
 
     let customer: any = null;
     if (customerId) {
-      customer = await this.customersService.findById(customerId);
+      customer = await this.customersService.findById(customerId, branchId);
     } else {
       try {
-        customer = await this.customersService.findByPhone(phone);
+        customer = await this.customersService.findByPhone(phone, branchId);
         customerId = (customer._id as any).toString();
       } catch (e) {
         if (!(e instanceof NotFoundException)) throw e;
@@ -164,7 +165,7 @@ export class AppointmentsService implements OnModuleInit {
           email: createAppointmentDto.customerEmail,
           phone: phone,
           whatsappId: createAppointmentDto.whatsappId,
-        });
+        }, branchId);
         customerId = (customer._id as any).toString();
       }
     }
@@ -173,7 +174,7 @@ export class AppointmentsService implements OnModuleInit {
     let vehicle: any = null;
     try {
       // If the vehicle already exists (same serial), reuse it
-      vehicle = await this.vehiclesService.findBySerialNumberLastFour(serialNumberLastFour);
+      vehicle = await this.vehiclesService.findBySerialNumberLastFour(serialNumberLastFour, branchId);
     } catch (e) {
       if (!(e instanceof NotFoundException)) throw e;
       // Vehicle not found → create a new one
@@ -183,11 +184,12 @@ export class AppointmentsService implements OnModuleInit {
         model: createAppointmentDto.vehicle.model,
         year: createAppointmentDto.vehicle.year,
         serialNumberLastFour: serialNumberLastFour,
-      });
+      }, branchId);
     }
 
     const appointment = new this.appointmentModel({
       ...createAppointmentDto,
+      branch: branchId,
       customer: customerId as any,
       scheduledAt: scheduledAtDate,
     });
@@ -201,6 +203,7 @@ export class AppointmentsService implements OnModuleInit {
         customerId!,
         (vehicle._id as any).toString(),
         createAppointmentDto.serviceRequested,
+        branchId,
       );
     } catch (err) {
       console.error('Error creating maintenance automatically from appointment:', err);
@@ -210,13 +213,13 @@ export class AppointmentsService implements OnModuleInit {
     return savedAppt.populate('customer');
   }
 
-  async findAll(filters: {
+  async findAll(branchId: string, filters: {
     search?: string;
     status?: string;
     fromDate?: string;
     toDate?: string;
   }): Promise<AppointmentDocument[]> {
-    const query: any = {};
+    const query: any = { branch: branchId };
 
     if (filters.status) {
       query.status = filters.status;
@@ -244,12 +247,12 @@ export class AppointmentsService implements OnModuleInit {
     return this.appointmentModel.find(query).populate('customer').sort({ scheduledAt: 1 }).exec();
   }
 
-  async findById(id: string): Promise<AppointmentDocument> {
+  async findById(id: string, branchId: string): Promise<AppointmentDocument> {
     if (!Types.ObjectId.isValid(id)) {
       const i18n = I18nContext.current();
       throw new BadRequestException(i18n ? i18n.t('common.errors.invalidAppointmentId') : 'ID de cita inválido');
     }
-    const appointment = await this.appointmentModel.findById(id).populate('customer').exec();
+    const appointment = await this.appointmentModel.findOne({ _id: id, branch: branchId }).populate('customer').exec();
     if (!appointment) {
       const i18n = I18nContext.current();
       throw new NotFoundException(i18n ? i18n.t('common.errors.appointmentNotFound') : 'Cita no encontrada');
@@ -257,9 +260,9 @@ export class AppointmentsService implements OnModuleInit {
     return appointment;
   }
 
-  async queryStatus(queryStr: string): Promise<AppointmentDocument[]> {
+  async queryStatus(queryStr: string, branchId: string): Promise<AppointmentDocument[]> {
     const trimmed = queryStr.trim();
-    const query: any = {};
+    const query: any = { branch: branchId };
 
     if (Types.ObjectId.isValid(trimmed)) {
       query._id = trimmed;
@@ -273,8 +276,8 @@ export class AppointmentsService implements OnModuleInit {
     return this.appointmentModel.find(query).populate('customer').sort({ createdAt: -1 }).exec();
   }
 
-  async update(id: string, updateAppointmentDto: UpdateAppointmentDto): Promise<AppointmentDocument> {
-    const appointment = await this.findById(id);
+  async update(id: string, branchId: string, updateAppointmentDto: UpdateAppointmentDto): Promise<AppointmentDocument> {
+    const appointment = await this.findById(id, branchId);
 
     let scheduledAtDate = appointment.scheduledAt;
     let duration = appointment.duration || 15;
@@ -286,11 +289,11 @@ export class AppointmentsService implements OnModuleInit {
     }
 
     if (updateAppointmentDto.scheduledAt || updateAppointmentDto.duration !== undefined) {
-      await this.validateBookingTime(scheduledAtDate, duration, id);
+      await this.validateBookingTime(scheduledAtDate, duration, branchId, id);
     }
 
     if (updateAppointmentDto.customerId) {
-      const customer = await this.customersService.findById(updateAppointmentDto.customerId);
+      const customer = await this.customersService.findById(updateAppointmentDto.customerId, branchId);
       appointment.customer = customer;
     }
 
@@ -326,14 +329,14 @@ export class AppointmentsService implements OnModuleInit {
 
     // When an appointment is marked as completed, activate any linked maintenance orders
     if (updateAppointmentDto.status === 'completed') {
-      await this.maintenanceService.activateFromAppointment(id);
+      await this.maintenanceService.activateFromAppointment(id, branchId);
     }
 
     return saved.populate('customer');
   }
 
-  async remove(id: string): Promise<void> {
-    const res = await this.appointmentModel.findByIdAndDelete(id);
+  async remove(id: string, branchId: string): Promise<void> {
+    const res = await this.appointmentModel.findOneAndDelete({ _id: id, branch: branchId });
     if (!res) {
       const i18n = I18nContext.current();
       throw new NotFoundException(i18n ? i18n.t('common.errors.appointmentNotFound') : 'Cita no encontrada');
@@ -341,62 +344,64 @@ export class AppointmentsService implements OnModuleInit {
   }
 
   // --- WORKSHOP SCHEDULE CONFIG ---
-  async getSchedule(): Promise<WorkshopSchedule[]> {
-    return this.scheduleModel.find().sort({ dayOfWeek: 1 }).exec();
+  async getSchedule(branchId: string): Promise<WorkshopSchedule[]> {
+    return this.scheduleModel.find({ branch: branchId }).sort({ dayOfWeek: 1 }).exec();
   }
 
-  async updateSchedule(schedules: any[]): Promise<WorkshopSchedule[]> {
+  async updateSchedule(schedules: any[], branchId: string): Promise<WorkshopSchedule[]> {
     for (const item of schedules) {
       await this.scheduleModel.findOneAndUpdate(
-        { dayOfWeek: item.dayOfWeek },
+        { dayOfWeek: item.dayOfWeek, branch: branchId },
         { isWorking: item.isWorking, startTime: item.startTime, endTime: item.endTime },
         { new: true, upsert: true }
       ).exec();
     }
-    return this.getSchedule();
+    return this.getSchedule(branchId);
   }
 
   // --- WORKSHOP HOLIDAYS CONFIG ---
-  async getHolidays(): Promise<WorkshopHoliday[]> {
-    return this.holidayModel.find().sort({ date: 1 }).exec();
+  async getHolidays(branchId: string): Promise<WorkshopHoliday[]> {
+    return this.holidayModel.find({ branch: branchId }).sort({ date: 1 }).exec();
   }
 
-  async addHoliday(date: string, description: string): Promise<WorkshopHoliday> {
-    const existing = await this.holidayModel.findOne({ date }).exec();
+  async addHoliday(date: string, description: string, branchId: string): Promise<WorkshopHoliday> {
+    const existing = await this.holidayModel.findOne({ date, branch: branchId }).exec();
     if (existing) {
       const i18n = I18nContext.current();
       throw new BadRequestException(i18n ? i18n.t('common.errors.holidayAlreadyRegistered') : 'Esta fecha ya está registrada como día festivo');
     }
-    const holiday = new this.holidayModel({ date, description });
+    const holiday = new this.holidayModel({ date, description, branch: branchId });
     return holiday.save();
   }
 
-  async removeHoliday(id: string): Promise<void> {
+  async removeHoliday(id: string, branchId: string): Promise<void> {
     const i18n = I18nContext.current();
     if (Types.ObjectId.isValid(id)) {
-      const res = await this.holidayModel.findByIdAndDelete(id).exec();
+      const res = await this.holidayModel.findOneAndDelete({ _id: id, branch: branchId }).exec();
       if (!res) throw new NotFoundException(i18n ? i18n.t('common.errors.holidayNotFound') : 'Día festivo no encontrado');
     } else {
-      const res = await this.holidayModel.findOneAndDelete({ date: id }).exec();
+      const res = await this.holidayModel.findOneAndDelete({ date: id, branch: branchId }).exec();
       if (!res) throw new NotFoundException(i18n ? i18n.t('common.errors.holidayNotFound') : 'Día festivo no encontrado');
     }
   }
 
   // --- OCCUPIED SLOTS ---
-  async getOccupiedSlots(startDateStr: string, endDateStr: string): Promise<any> {
+  async getOccupiedSlots(startDateStr: string, endDateStr: string, branchId: string): Promise<any> {
     const startDate = new Date(startDateStr);
     const endDate = new Date(endDateStr);
 
     const holidays = await this.holidayModel.find({
-      date: { $gte: startDateStr, $lte: endDateStr }
+      date: { $gte: startDateStr, $lte: endDateStr },
+      branch: branchId
     }).exec();
 
-    const weeklySchedules = await this.scheduleModel.find().exec();
+    const weeklySchedules = await this.scheduleModel.find({ branch: branchId }).exec();
     const nonWorkingDaysOfWeek = weeklySchedules
       .filter(s => !s.isWorking)
       .map(s => s.dayOfWeek);
 
     const appointments = await this.appointmentModel.find({
+      branch: branchId,
       status: { $in: ['pending', 'approved', 'rescheduled'] },
       scheduledAt: { $gte: startDate, $lte: endDate }
     }).sort({ scheduledAt: 1 }).exec();
@@ -440,12 +445,13 @@ export class AppointmentsService implements OnModuleInit {
   }
 
   // --- WEEKLY TIMELINE ---
-  async getWeeklyTimeline(startDateStr: string, endDateStr: string): Promise<any[]> {
+  async getWeeklyTimeline(startDateStr: string, endDateStr: string, branchId: string): Promise<any[]> {
     const start = new Date(startDateStr);
     const end = new Date(endDateStr);
     end.setUTCHours(23, 59, 59, 999);
 
     const appointments = await this.appointmentModel.find({
+      branch: branchId,
       scheduledAt: { $gte: start, $lte: end }
     })
       .populate('customer')
@@ -484,8 +490,8 @@ export class AppointmentsService implements OnModuleInit {
   }
 
   // --- APPROVE, REJECT & RESCHEDULE WITH WHATSAPP ---
-  async approve(id: string, message: string): Promise<AppointmentDocument> {
-    const appointment = await this.findById(id);
+  async approve(id: string, branchId: string, message: string): Promise<AppointmentDocument> {
+    const appointment = await this.findById(id, branchId);
     appointment.status = 'approved';
     const saved = await appointment.save();
 
@@ -495,8 +501,8 @@ export class AppointmentsService implements OnModuleInit {
     return saved.populate('customer');
   }
 
-  async reject(id: string, message: string): Promise<AppointmentDocument> {
-    const appointment = await this.findById(id);
+  async reject(id: string, branchId: string, message: string): Promise<AppointmentDocument> {
+    const appointment = await this.findById(id, branchId);
     appointment.status = 'rejected';
     const saved = await appointment.save();
 
@@ -508,15 +514,16 @@ export class AppointmentsService implements OnModuleInit {
 
   async reschedule(
     id: string,
+    branchId: string,
     scheduledAtStr: string,
     duration: number,
     message: string,
   ): Promise<AppointmentDocument> {
-    const appointment = await this.findById(id);
+    const appointment = await this.findById(id, branchId);
     const newScheduledAt = new Date(scheduledAtStr);
 
     // Validar el nuevo horario propuesto, excluyendo esta misma cita en el control de traslapes
-    await this.validateBookingTime(newScheduledAt, duration, id);
+    await this.validateBookingTime(newScheduledAt, duration, branchId, id);
 
     appointment.status = 'rescheduled'; // Cambia al estado reagendada
     appointment.scheduledAt = newScheduledAt;

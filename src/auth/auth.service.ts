@@ -37,12 +37,16 @@ export class AuthService {
       throw new NotFoundException(i18n ? i18n.t('common.errors.defaultRoleNotConfigured') : 'El rol de vendedor por defecto no está configurado');
     }
 
-    return this.usersService.create({
+    const result = await this.usersService.create({
       name: signupDto.name,
       email: signupDto.email,
       password: signupDto.password,
       roleId: (sellerRole._id as any).toString(),
+      phone: signupDto.phone,
+      branches: [],
     });
+
+    return result.user;
   }
 
   async login(loginDto: LoginDto, ip: string, userAgent: string) {
@@ -111,6 +115,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         role: user.role.name,
+        branches: user.branches || [],
       },
     };
   }
@@ -158,6 +163,7 @@ export class AuthService {
         name: user.role.name,
         permissions: user.role.permissions,
       },
+      branches: user.branches || [],
       sessionId,
     };
 

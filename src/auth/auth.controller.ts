@@ -71,6 +71,7 @@ export class AuthController {
       name: user.name,
       email: user.email,
       role: user.role,
+      branches: user.branches || [],
       lastLoginAt: user.lastLoginAt,
     };
   }

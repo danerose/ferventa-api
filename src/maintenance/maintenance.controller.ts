@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   UploadedFiles,
   BadRequestException,
+  Headers,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
@@ -27,6 +28,8 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { I18nContext } from 'nestjs-i18n';
+import { BranchGuard } from '../common/guards/branch.guard';
+import { BranchId } from '../common/decorators/branch-id.decorator';
 
 // Ensure evidence upload directory exists
 const uploadDir = './uploads/evidence';
@@ -42,72 +45,76 @@ export class MaintenanceController {
   // --- PUBLIC TRACKING ENDPOINT (No Auth) ---
   @Get('track/public')
   @ApiOperation({ summary: 'Consultar el avance y fotos de mantenimiento por últimos 4 dígitos del número de serie o celular del cliente (Público)' })
-  trackPublicly(@Query('q') q: string) {
+  trackPublicly(@Headers('x-branch-id') branchId: string, @Query('q') q: string) {
+    if (!branchId) throw new BadRequestException('Falta x-branch-id');
     if (!q) {
       const i18n = I18nContext.current();
       throw new BadRequestException(i18n ? i18n.t('common.errors.searchQueryRequired') : 'El parámetro de búsqueda "q" es requerido');
     }
-    return this.maintenanceService.findClientView(q);
+    return this.maintenanceService.findClientView(q, branchId);
   }
 
   // --- STAFF ENDPOINTS (Required Auth) ---
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
   @Roles('admin', 'seller')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Crear una orden de servicio/mantenimiento (Admin / Seller)' })
   create(
+    @BranchId() branchId: string,
     @Body() createMaintenanceDto: CreateMaintenanceDto,
     @CurrentUser('_id') userId: string,
   ) {
-    return this.maintenanceService.create(createMaintenanceDto, userId);
+    return this.maintenanceService.create(createMaintenanceDto, userId, branchId);
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
   @Roles('admin', 'seller', 'warehouse')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Listar órdenes de mantenimiento con filtros' })
   findAll(
+    @BranchId() branchId: string,
     @Query('customerId') customerId?: string,
     @Query('status') status?: string,
   ) {
-    return this.maintenanceService.findAll({ customerId, status });
+    return this.maintenanceService.findAll(branchId, { customerId, status });
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
   @Roles('admin', 'seller', 'warehouse')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Obtener detalle de una orden de mantenimiento por ID' })
-  findOne(@Param('id') id: string) {
-    return this.maintenanceService.findById(id);
+  findOne(@BranchId() branchId: string, @Param('id') id: string) {
+    return this.maintenanceService.findById(id, branchId);
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
   @Roles('admin', 'seller')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Actualizar estado o mano de obra de una orden' })
-  update(@Param('id') id: string, @Body() updateMaintenanceDto: UpdateMaintenanceDto) {
-    return this.maintenanceService.update(id, updateMaintenanceDto);
+  update(@BranchId() branchId: string, @Param('id') id: string, @Body() updateMaintenanceDto: UpdateMaintenanceDto) {
+    return this.maintenanceService.update(id, branchId, updateMaintenanceDto);
   }
 
   @Post(':id/items')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
   @Roles('admin', 'seller', 'warehouse')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Registrar refacción/insumo usado (Descuenta stock automáticamente)' })
   addItemUsed(
+    @BranchId() branchId: string,
     @Param('id') id: string,
     @Body() addItemUsedDto: AddItemUsedDto,
     @CurrentUser('_id') userId: string,
   ) {
-    return this.maintenanceService.addItemUsed(id, addItemUsedDto, userId);
+    return this.maintenanceService.addItemUsed(id, branchId, addItemUsedDto, userId);
   }
 
   @Post(':id/evidence')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
   @Roles('admin', 'seller')
   @ApiBearerAuth()
   @UseInterceptors(
@@ -146,6 +153,7 @@ export class MaintenanceController {
     },
   })
   uploadEvidence(
+    @BranchId() branchId: string,
     @Param('id') id: string,
     @Body() uploadEvidenceDto: UploadEvidenceDto,
     @UploadedFiles() files: any[],
@@ -155,15 +163,15 @@ export class MaintenanceController {
       throw new BadRequestException(i18n ? i18n.t('common.errors.photoEvidenceRequired') : 'Se requiere al menos una foto de evidencia');
     }
     const photoUrls = files.map((file) => `/uploads/evidence/${file.filename}`);
-    return this.maintenanceService.addEvidencePhotos(id, uploadEvidenceDto.stage, photoUrls);
+    return this.maintenanceService.addEvidencePhotos(id, branchId, uploadEvidenceDto.stage, photoUrls);
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
   @Roles('admin')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Eliminar una orden (Solo Admin - si no ha iniciado)' })
-  remove(@Param('id') id: string) {
-    return this.maintenanceService.remove(id);
+  remove(@BranchId() branchId: string, @Param('id') id: string) {
+    return this.maintenanceService.remove(id, branchId);
   }
 }

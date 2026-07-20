@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
 import { Customer } from '../../customers/schemas/customer.schema';
+import { Branch } from '../../branches/schemas/branch.schema';
 
 export type VehicleDocument = Vehicle & Document;
 
@@ -23,6 +24,9 @@ export class Vehicle {
 
   @Prop({ type: String, default: '' })
   color: string;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Branch', required: true })
+  branch: Branch | any;
 }
 
 export const VehicleSchema = SchemaFactory.createForClass(Vehicle);

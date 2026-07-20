@@ -84,6 +84,8 @@
     "vehicleNotFound": "Vehículo no encontrado",
     "vehicleSerialNumberNotFound": "Vehículo con ese número de serie (últimos 4 dígitos) no encontrado",
     "insufficientStockProduct": "Stock insuficiente para {name}. Disponible: {stock}, Requerido: {required}",
-    "onlyImagesAllowed": "Solo se permiten archivos JPG, JPEG o PNG"
+    "onlyImagesAllowed": "Solo se permiten archivos JPG, JPEG o PNG",
+    "branchIdRequired": "El header x-branch-id es obligatorio para esta petición",
+    "branchAccessDenied": "No tienes acceso a esta sucursal"
   }
 }

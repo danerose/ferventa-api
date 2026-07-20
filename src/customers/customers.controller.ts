@@ -16,10 +16,12 @@ import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { BranchGuard } from '../common/guards/branch.guard';
+import { BranchId } from '../common/decorators/branch-id.decorator';
 
 @ApiTags('Clientes')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
 @Controller('customers')
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
@@ -28,39 +30,39 @@ export class CustomersController {
   @Roles('admin', 'seller')
   @ApiOperation({ summary: 'Registrar un nuevo cliente (Admin / Seller)' })
   @ApiResponse({ status: 201, description: 'Cliente creado correctamente.' })
-  create(@Body() createCustomerDto: CreateCustomerDto) {
-    return this.customersService.create(createCustomerDto);
+  create(@BranchId() branchId: string, @Body() createCustomerDto: CreateCustomerDto) {
+    return this.customersService.create(createCustomerDto, branchId);
   }
 
   @Get()
   @ApiOperation({ summary: 'Listar todos los clientes o buscar por nombre/teléfono' })
-  findAll(@Query('search') search?: string) {
-    return this.customersService.findAll(search);
+  findAll(@BranchId() branchId: string, @Query('search') search?: string) {
+    return this.customersService.findAll(branchId, search);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Obtener detalle de un cliente por ID' })
-  findOne(@Param('id') id: string) {
-    return this.customersService.findById(id);
+  findOne(@BranchId() branchId: string, @Param('id') id: string) {
+    return this.customersService.findById(id, branchId);
   }
 
   @Get('phone/:phone')
   @ApiOperation({ summary: 'Obtener detalle de un cliente por teléfono' })
-  findByPhone(@Param('phone') phone: string) {
-    return this.customersService.findByPhone(phone);
+  findByPhone(@BranchId() branchId: string, @Param('phone') phone: string) {
+    return this.customersService.findByPhone(phone, branchId);
   }
 
   @Patch(':id')
   @Roles('admin', 'seller')
   @ApiOperation({ summary: 'Actualizar un cliente (Admin / Seller)' })
-  update(@Param('id') id: string, @Body() updateCustomerDto: UpdateCustomerDto) {
-    return this.customersService.update(id, updateCustomerDto);
+  update(@BranchId() branchId: string, @Param('id') id: string, @Body() updateCustomerDto: UpdateCustomerDto) {
+    return this.customersService.update(id, branchId, updateCustomerDto);
   }
 
   @Delete(':id')
   @Roles('admin')
   @ApiOperation({ summary: 'Eliminar un cliente (Solo Admin)' })
-  remove(@Param('id') id: string) {
-    return this.customersService.remove(id);
+  remove(@BranchId() branchId: string, @Param('id') id: string) {
+    return this.customersService.remove(id, branchId);
   }
 }

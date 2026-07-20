@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
 import { Product } from './product.schema';
 import { User } from '../../users/schemas/user.schema';
+import { Branch } from '../../branches/schemas/branch.schema';
 
 export type StockMovementDocument = StockMovement & Document;
 
@@ -21,6 +22,9 @@ export class StockMovement {
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
   performedBy: User;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Branch', required: true })
+  branch: Branch | any;
 }
 
 export const StockMovementSchema = SchemaFactory.createForClass(StockMovement);

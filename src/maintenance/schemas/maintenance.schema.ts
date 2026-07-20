@@ -5,6 +5,7 @@ import { Vehicle } from '../../vehicles/schemas/vehicle.schema';
 import { Product } from '../../inventory/schemas/product.schema';
 import { User } from '../../users/schemas/user.schema';
 import { Appointment } from '../../appointments/schemas/appointment.schema';
+import { Branch } from '../../branches/schemas/branch.schema';
 
 export type MaintenanceDocument = Maintenance & Document;
 
@@ -89,6 +90,9 @@ export class Maintenance {
 
   @Prop({ type: Date, default: null })
   endDate: Date | null;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Branch', required: true })
+  branch: Branch | any;
 }
 
 export const MaintenanceSchema = SchemaFactory.createForClass(Maintenance);

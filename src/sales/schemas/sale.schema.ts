@@ -4,6 +4,7 @@ import { Customer } from '../../customers/schemas/customer.schema';
 import { Quote } from '../../quotes/schemas/quote.schema';
 import { Product } from '../../inventory/schemas/product.schema';
 import { User } from '../../users/schemas/user.schema';
+import { Branch } from '../../branches/schemas/branch.schema';
 
 export type SaleDocument = Sale & Document;
 
@@ -71,6 +72,9 @@ export class Sale {
 
   @Prop({ type: String, default: '' })
   cancelReason: string;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Branch', required: true })
+  branch: Branch | any;
 }
 
 export const SaleSchema = SchemaFactory.createForClass(Sale);

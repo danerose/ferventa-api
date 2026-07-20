@@ -20,7 +20,7 @@ export class SalesService {
     private readonly mercadoPagoService: MercadoPagoService,
   ) {}
 
-  async create(createSaleDto: CreateSaleDto, userId: string): Promise<SaleDocument> {
+  async create(createSaleDto: CreateSaleDto, userId: string, branchId: string): Promise<SaleDocument> {
     const folio = this.generateFolio();
     let customerId = createSaleDto.customerId;
     let saleItems: any[] = [];
@@ -30,7 +30,7 @@ export class SalesService {
 
     // 1. If sale originates from a Quote
     if (createSaleDto.quoteId) {
-      const quote = await this.quotesService.findById(createSaleDto.quoteId);
+      const quote = await this.quotesService.findById(createSaleDto.quoteId, branchId);
       
       if (quote.status === 'converted_to_sale') {
         const i18n = I18nContext.current();
@@ -49,7 +49,7 @@ export class SalesService {
 
       // Check stock for all items
       for (const item of quote.items) {
-        const product = await this.inventoryService.findProductById((item.product as any)._id.toString());
+        const product = await this.inventoryService.findProductById((item.product as any)._id.toString(), branchId);
         if (product.stock < item.quantity) {
           const i18n = I18nContext.current();
           const message = i18n
@@ -69,6 +69,7 @@ export class SalesService {
             reason: `Venta Folio #${folio} (Conversión de cotización)`,
           },
           userId,
+          branchId,
         );
 
         saleItems.push({
@@ -95,13 +96,13 @@ export class SalesService {
         throw new BadRequestException(i18n ? i18n.t('common.errors.atLeastOneProductRequired') : 'Se requiere al menos un producto para registrar la venta');
       }
 
-      await this.customersService.findById(customerId);
+      await this.customersService.findById(customerId, branchId);
 
       let itemsDiscount = 0;
 
       // Check stock for all items
       for (const item of createSaleDto.items) {
-        const product = await this.inventoryService.findProductById(item.productId);
+        const product = await this.inventoryService.findProductById(item.productId, branchId);
         if (product.stock < item.quantity) {
           const i18n = I18nContext.current();
           const message = i18n
@@ -113,7 +114,7 @@ export class SalesService {
 
       // Process and deduct stock
       for (const item of createSaleDto.items) {
-        const product = await this.inventoryService.findProductById(item.productId);
+        const product = await this.inventoryService.findProductById(item.productId, branchId);
         
         await this.inventoryService.registerMovement(
           {
@@ -123,6 +124,7 @@ export class SalesService {
             reason: `Venta Directa Folio #${folio}`,
           },
           userId,
+          branchId,
         );
 
         const priceSnapshot = product.sellingPrice;
@@ -173,13 +175,14 @@ export class SalesService {
       paymentMethod: createSaleDto.paymentMethod,
       paymentReference,
       seller: userId as any,
+      branch: branchId as any,
     });
 
     return (await sale.save()).populate(['customer', 'seller', 'quoteRef']);
   }
 
-  async cancel(id: string, cancelSaleDto: CancelSaleDto, userId: string): Promise<SaleDocument> {
-    const sale = await this.findById(id);
+  async cancel(id: string, branchId: string, cancelSaleDto: CancelSaleDto, userId: string): Promise<SaleDocument> {
+    const sale = await this.findById(id, branchId);
 
     if (sale.isCancelled) {
       const i18n = I18nContext.current();
@@ -196,6 +199,7 @@ export class SalesService {
           reason: `Cancelación de Venta Folio #${sale.folio}`,
         },
         userId,
+        branchId,
       );
     }
 
@@ -207,8 +211,8 @@ export class SalesService {
     return (await sale.save()).populate(['customer', 'seller', 'cancelledBy']);
   }
 
-  async findAll(filters: { customerId?: string; isCancelled?: boolean }): Promise<SaleDocument[]> {
-    const query: any = {};
+  async findAll(branchId: string, filters: { customerId?: string; isCancelled?: boolean }): Promise<SaleDocument[]> {
+    const query: any = { branch: branchId };
     if (filters.customerId) {
       query.customer = filters.customerId;
     }
@@ -222,13 +226,15 @@ export class SalesService {
       .exec();
   }
 
-  async findById(id: string): Promise<SaleDocument> {
+  async findById(id: string, branchId?: string): Promise<SaleDocument> {
     if (!Types.ObjectId.isValid(id)) {
       const i18n = I18nContext.current();
       throw new BadRequestException(i18n ? i18n.t('common.errors.invalidSaleId') : 'ID de venta inválido');
     }
+    const query: any = { _id: id };
+    if (branchId) query.branch = branchId;
     const sale = await this.saleModel
-      .findById(id)
+      .findOne(query)
       .populate(['customer', 'seller', 'items.product', 'quoteRef'])
       .exec();
     if (!sale) {
@@ -238,9 +244,9 @@ export class SalesService {
     return sale;
   }
 
-  async findByFolio(folio: string): Promise<SaleDocument> {
+  async findByFolio(folio: string, branchId: string): Promise<SaleDocument> {
     const sale = await this.saleModel
-      .findOne({ folio: folio.toUpperCase().trim() })
+      .findOne({ folio: folio.toUpperCase().trim(), branch: branchId })
       .populate(['customer', 'seller', 'items.product', 'quoteRef'])
       .exec();
     if (!sale) {

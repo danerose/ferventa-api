@@ -20,6 +20,8 @@ import { MaintenanceModule } from './maintenance/maintenance.module';
 import { QuotesModule } from './quotes/quotes.module';
 import { SalesModule } from './sales/sales.module';
 import { ReportsModule } from './reports/reports.module';
+import { BranchesModule } from './branches/branches.module';
+import { MigrationModule } from './migration/migration.module';
 
 @Module({
   imports: [
@@ -72,6 +74,8 @@ import { ReportsModule } from './reports/reports.module';
     QuotesModule,
     SalesModule,
     ReportsModule,
+    BranchesModule,
+    MigrationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
