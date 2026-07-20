@@ -43,7 +43,24 @@ export class AppointmentsService implements OnModuleInit {
   }
 
   async validateBookingTime(scheduledAt: Date, duration: number, excludeAppointmentId?: string): Promise<void> {
-    if (scheduledAt.getTime() < Date.now()) {
+    // Construct a "Fake UTC" date representing the current local time of the workshop
+    const timeZone = process.env.WORKSHOP_TIMEZONE || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric', month: 'numeric', day: 'numeric',
+      hour: 'numeric', minute: 'numeric', second: 'numeric',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(new Date());
+    const getPart = (type: string) => parseInt(parts.find(p => p.type === type)?.value || '0', 10);
+    
+    // If the local hour is 24 (which Intl sometimes returns for midnight), adjust it to 0
+    let hour = getPart('hour');
+    if (hour === 24) hour = 0;
+
+    const currentFakeUTC = new Date(Date.UTC(getPart('year'), getPart('month') - 1, getPart('day'), hour, getPart('minute'), getPart('second')));
+
+    if (scheduledAt.getTime() < currentFakeUTC.getTime()) {
       const i18n = I18nContext.current();
       throw new BadRequestException(i18n ? i18n.t('common.errors.pastDate') : 'No se pueden agendar citas en el pasado');
     }
