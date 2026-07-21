@@ -8,6 +8,10 @@ export class CreateStockMovementDto {
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   productId: string;
 
+  @ApiProperty({ example: '60d5ec49c6d48227b409748f', description: 'ID del Proveedor (Opcional, para registrar de donde vino)' })
+  @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
+  providerId?: string;
+
   @ApiProperty({ example: 'in', enum: ['in', 'out', 'adjustment'], description: 'Tipo de movimiento' })
   @IsEnum(['in', 'out', 'adjustment'], { message: i18nValidationMessage('validation.isEnum') })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })

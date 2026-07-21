@@ -2,7 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
 import { Brand } from './brand.schema';
 import { Category } from './category.schema';
-import { Provider } from './provider.schema';
+
 import { Branch } from '../../branches/schemas/branch.schema';
 export type ProductDocument = Product & Document;
 
@@ -25,9 +25,6 @@ export class Product {
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Category', required: true })
   category: Category;
-
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Provider', required: true })
-  provider: Provider;
 
   @Prop({ required: true, type: Number })
   costPrice: number;

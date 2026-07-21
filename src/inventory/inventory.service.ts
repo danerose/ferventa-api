@@ -131,22 +131,15 @@ export class InventoryService {
       throw new NotFoundException(i18n ? i18n.t('common.errors.categoryNotFound') : 'La categoría especificada no existe');
     }
 
-    const providerExists = await this.providerModel.exists({ _id: createProductDto.providerId, branch: branchId });
-    if (!providerExists) {
-      const i18n = I18nContext.current();
-      throw new NotFoundException(i18n ? i18n.t('common.errors.providerNotFound') : 'El proveedor especificado no existe');
-    }
-
     const product = new this.productModel({
       ...createProductDto,
       sku: createProductDto.sku.toUpperCase(),
       branch: branchId,
       brand: createProductDto.brandId,
       category: createProductDto.categoryId,
-      provider: createProductDto.providerId,
     });
 
-    return (await product.save()).populate(['brand', 'category', 'provider']);
+    return (await product.save()).populate(['brand', 'category']);
   }
 
   async findAllProducts(branchId: string, filters: { search?: string; categoryId?: string; brandId?: string }): Promise<ProductDocument[]> {
@@ -168,13 +161,13 @@ export class InventoryService {
 
     return this.productModel
       .find(query)
-      .populate(['brand', 'category', 'provider'])
+      .populate(['brand', 'category'])
       .sort({ name: 1 })
       .exec();
   }
 
   async findProductById(id: string, branchId: string): Promise<ProductDocument> {
-    const product = await this.productModel.findOne({ _id: id, branch: branchId }).populate(['brand', 'category', 'provider']).exec();
+    const product = await this.productModel.findOne({ _id: id, branch: branchId }).populate(['brand', 'category']).exec();
     if (!product) {
       const i18n = I18nContext.current();
       throw new NotFoundException(i18n ? i18n.t('common.errors.productNotFound') : 'Producto no encontrado');
@@ -183,7 +176,7 @@ export class InventoryService {
   }
 
   async findProductBySku(sku: string, branchId: string): Promise<ProductDocument> {
-    const product = await this.productModel.findOne({ sku: sku.toUpperCase(), branch: branchId }).populate(['brand', 'category', 'provider']).exec();
+    const product = await this.productModel.findOne({ sku: sku.toUpperCase(), branch: branchId }).populate(['brand', 'category']).exec();
     if (!product) {
       const i18n = I18nContext.current();
       throw new NotFoundException(i18n ? i18n.t('common.errors.productSkuNotFound') : 'Producto con SKU especificado no encontrado');
@@ -212,14 +205,6 @@ export class InventoryService {
       product.category = updateProductDto.categoryId as any;
     }
 
-    if (updateProductDto.providerId) {
-      const providerExists = await this.providerModel.exists({ _id: updateProductDto.providerId, branch: branchId });
-      if (!providerExists) {
-        const i18n = I18nContext.current();
-        throw new NotFoundException(i18n ? i18n.t('common.errors.providerNotFound') : 'El proveedor especificado no existe');
-      }
-      product.provider = updateProductDto.providerId as any;
-    }
 
     // Explicitly update simple fields
     if (updateProductDto.name) product.name = updateProductDto.name;
@@ -234,7 +219,7 @@ export class InventoryService {
     if (updateProductDto.isActive !== undefined) product.isActive = updateProductDto.isActive;
 
     const saved = await product.save();
-    return saved.populate(['brand', 'category', 'provider']);
+    return saved.populate(['brand', 'category']);
   }
 
   async deleteProduct(id: string, branchId: string): Promise<void> {
@@ -292,9 +277,17 @@ export class InventoryService {
       performedBy: userId as any,
     });
 
+    if (createStockMovementDto.providerId) {
+      const providerExists = await this.providerModel.exists({ _id: createStockMovementDto.providerId, branch: branchId });
+      if (providerExists) {
+        movement.provider = createStockMovementDto.providerId as any;
+      }
+    }
+
     return (await movement.save()).populate([
       { path: 'product', populate: ['brand', 'category'] },
-      { path: 'performedBy', select: 'name email' }
+      { path: 'performedBy', select: 'name email' },
+      { path: 'provider', select: 'name providerCode' }
     ]);
   }
 
@@ -302,6 +295,7 @@ export class InventoryService {
     return this.movementModel
       .find({ product: productId as any, branch: branchId })
       .populate('performedBy', 'name email')
+      .populate('provider', 'name providerCode')
       .sort({ createdAt: -1 })
       .exec();
   }
@@ -311,6 +305,7 @@ export class InventoryService {
       .find({ branch: branchId })
       .populate('product', 'sku name')
       .populate('performedBy', 'name email')
+      .populate('provider', 'name providerCode')
       .sort({ createdAt: -1 })
       .exec();
   }

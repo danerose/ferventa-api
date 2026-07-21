@@ -36,11 +36,6 @@ export class CreateProductDto {
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   categoryId: string;
 
-  @ApiProperty({ example: '60d5ec49c6d48227b409748d', description: 'ID del Proveedor' })
-  @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
-  @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
-  providerId: string;
-
   @ApiProperty({ example: 450.0, description: 'Precio de costo unitario' })
   @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })
   @Min(0, { message: i18nValidationMessage('validation.min') })

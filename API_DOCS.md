@@ -469,8 +469,7 @@ Base URL: `/api`
 ```json
 {
   "name": "string",
-  "phone": "string",
-  "email": "string"
+  "providerCode": "string"
 }
 ```
 
@@ -511,8 +510,7 @@ Base URL: `/api`
 ```json
 {
   "name": "string",
-  "phone": "string",
-  "email": "string"
+  "providerCode": "string"
 }
 ```
 
@@ -557,7 +555,6 @@ Base URL: `/api`
   "description": "string",
   "brandId": "string",
   "categoryId": "string",
-  "providerId": "string",
   "costPrice": 0,
   "sellingPrice": 0,
   "stock": 0,
@@ -635,7 +632,6 @@ Base URL: `/api`
   "description": "string",
   "brandId": "string",
   "categoryId": "string",
-  "providerId": "string",
   "costPrice": 0,
   "sellingPrice": 0,
   "stock": 0,
@@ -706,6 +702,7 @@ Base URL: `/api`
 ```json
 {
   "productId": "string",
+  "providerId": "string",
   "type": "in",
   "quantity": 0,
   "reason": "string"

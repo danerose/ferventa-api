@@ -9,11 +9,9 @@ export class Provider {
   @Prop({ required: true, trim: true })
   name: string;
 
-  @Prop({ type: String, default: '' })
-  phone: string;
+  @Prop({ required: true, trim: true })
+  providerCode: string;
 
-  @Prop({ type: String, default: '' })
-  email: string;
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Branch', required: true })
   branch: Branch | any;

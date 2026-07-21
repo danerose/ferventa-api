@@ -31,11 +31,6 @@ export class UpdateProductDto {
   @IsOptional()
   categoryId?: string;
 
-  @ApiPropertyOptional({ example: '60d5ec49c6d48227b409748d', description: 'ID del Proveedor' })
-  @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
-  @IsOptional()
-  providerId?: string;
-
   @ApiPropertyOptional({ example: 450.0, description: 'Precio de costo unitario' })
   @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })
   @Min(0, { message: i18nValidationMessage('validation.min') })

@@ -9,14 +9,8 @@ export class CreateProviderDto {
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   name: string;
 
-  @ApiPropertyOptional({ example: '8112345678', description: 'Teléfono de contacto' })
+  @ApiProperty({ example: 'PROV-001', description: 'Código único del proveedor' })
   @IsString({ message: i18nValidationMessage('validation.isString') })
-  @IsOptional()
-  phone?: string;
-
-  @ApiPropertyOptional({ example: 'contacto@autopartesnorte.com', description: 'Correo de contacto' })
-  @Transform(({ value }) => value === '' ? undefined : value)
-  @IsEmail({}, { message: i18nValidationMessage('validation.isEmail') })
-  @IsOptional()
-  email?: string;
+  @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
+  providerCode: string;
 }
