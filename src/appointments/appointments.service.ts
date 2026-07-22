@@ -44,7 +44,7 @@ export class AppointmentsService {
 
   async validateBookingTime(scheduledAt: Date, duration: number, branchId: string, excludeAppointmentId?: string): Promise<void> {
     // Construct a "Fake UTC" date representing the current local time of the workshop
-    const timeZone = process.env.WORKSHOP_TIMEZONE || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const timeZone = process.env.WORKSHOP_TIMEZONE || 'America/Mexico_City';
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone,
       year: 'numeric', month: 'numeric', day: 'numeric',
