@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { AppointmentsModule } from '../appointments/appointments.module';
+import { UsersModule } from '../users/users.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MigrationController } from './migration.controller';
 import { MigrationService } from './migration.service';
@@ -43,6 +44,7 @@ import { Sale, SaleSchema } from '../sales/schemas/sale.schema';
       { name: Sale.name, schema: SaleSchema },
     ]),
     forwardRef(() => AppointmentsModule),
+    forwardRef(() => UsersModule),
   ],
   controllers: [MigrationController],
   providers: [MigrationService],

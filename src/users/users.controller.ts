@@ -8,6 +8,7 @@ import {
   Delete,
   Query,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { UsersService } from './users.service';
@@ -29,8 +30,8 @@ export class UsersController {
   @Roles('admin')
   @ResponseMessage('users.create')
   @ApiOperation({ summary: 'Crear un nuevo usuario (Solo Admin)' })
-  @ApiResponse({ status: 201, description: 'Usuario creado exitosamente.' })
-  @ApiResponse({ status: 400, description: 'Datos inválidos o correo ya registrado.' })
+  @ApiResponse({ status: 201, description: 'Usuario creado exitosamente. Devuelve el usuario, contraseña temporal, mensaje de WhatsApp y whatsappUrl.' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos o correo/usuario ya registrado.' })
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
   }
@@ -52,6 +53,41 @@ export class UsersController {
   @ApiOperation({ summary: 'Obtener la lista de roles activos' })
   findAllRoles() {
     return this.usersService.findAllRoles();
+  }
+
+  @Get('generate-username')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Generar un nombre de usuario único basado en el nombre de la persona' })
+  @ApiQuery({ name: 'name', required: true, description: 'Nombre completo de la persona' })
+  async generateUsername(@Query('name') name: string) {
+    if (!name) {
+      throw new BadRequestException('El parámetro name es requerido');
+    }
+    const username = await this.usersService.generateUsername(name);
+    return { username };
+  }
+
+  @Get('check-username')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Validar si un nombre de usuario ya existe o está disponible (por query param)' })
+  @ApiQuery({ name: 'username', required: true, description: 'Nombre de usuario a validar' })
+  checkUsernameQuery(@Query('username') username: string) {
+    return this.usersService.checkUsername(username);
+  }
+
+  @Post('migrate-usernames')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Migrar usuarios existentes que no tengan un nombre de usuario asignado (Solo Admin)' })
+  @ApiResponse({ status: 200, description: 'Migración de nombres de usuario ejecutada exitosamente.' })
+  migrateUsernames() {
+    return this.usersService.migrateUsernames();
+  }
+
+  @Get('check-username/:username')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Validar si un nombre de usuario ya existe o está disponible (por param de ruta)' })
+  checkUsernameParam(@Param('username') username: string) {
+    return this.usersService.checkUsername(username);
   }
 
   @Get(':id')

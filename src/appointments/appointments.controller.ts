@@ -113,7 +113,7 @@ export class AppointmentsController {
   // --- TIMELINE ENDPOINT (Staff) ---
   @Get('timeline')
   @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
-  @Roles('admin', 'seller')
+  @Roles('admin', 'seller', 'mechanic')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Obtener citas detalladas para vista de timeline/cronograma' })
   @ApiQuery({ name: 'startDate', required: true, example: '2026-07-09' })
@@ -142,7 +142,7 @@ export class AppointmentsController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
-  @Roles('admin', 'seller')
+  @Roles('admin', 'seller', 'mechanic')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Listar todas las citas con filtros opcionales' })
   @ApiQuery({ name: 'search', required: false, description: 'Buscar por cliente, teléfono o placas' })
@@ -161,7 +161,7 @@ export class AppointmentsController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
-  @Roles('admin', 'seller')
+  @Roles('admin', 'seller', 'mechanic')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Obtener detalle de una cita por ID (Staff)' })
   findOne(@BranchId() branchId: string, @Param('id') id: string) {

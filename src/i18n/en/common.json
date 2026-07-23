@@ -26,6 +26,7 @@
     "insufficientStock": "Insufficient stock to perform this operation",
     "invalidRole": "The specified role is invalid",
     "emailRegistered": "The email is already registered",
+    "usernameRegistered": "The username is already registered",
     "appointmentOverlap": "Time slot occupied. Overlap detected with another scheduled appointment from {start} to {end}",
     "pastDate": "Cannot schedule appointments in the past",
     "holidayClosure": "The workshop will be closed on {date}: {description}",

@@ -9,6 +9,9 @@ export class User {
   @Prop({ required: true, trim: true })
   name: string;
 
+  @Prop({ required: false, unique: true, lowercase: true, trim: true, sparse: true, index: true })
+  username?: string;
+
   @Prop({ required: true, unique: true, lowercase: true, trim: true, index: true })
   email: string;
 
@@ -21,8 +24,8 @@ export class User {
   @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'Branch' }], default: [] })
   branches: Branch[];
 
-  @Prop({ required: true, trim: true })
-  phone: string;
+  @Prop({ required: false, trim: true, default: '' })
+  phone?: string;
 
   @Prop({ type: Boolean, default: true })
   isActive: boolean;
@@ -38,3 +41,4 @@ export const UserSchema = SchemaFactory.createForClass(User);
 
 // Ensure index for soft deletes and lookup performance
 UserSchema.index({ email: 1, deletedAt: 1 });
+UserSchema.index({ username: 1, deletedAt: 1 }, { sparse: true });

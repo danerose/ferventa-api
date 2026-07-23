@@ -26,6 +26,7 @@
     "insufficientStock": "Stock insuficiente para realizar esta operación",
     "invalidRole": "El rol especificado es inválido",
     "emailRegistered": "El correo ya está registrado",
+    "usernameRegistered": "El nombre de usuario ya está registrado",
     "appointmentOverlap": "Horario ocupado. Traslape detectado con otra cita agendada de {start} a {end}",
     "pastDate": "No se pueden agendar citas en el pasado",
     "holidayClosure": "El taller estará cerrado el día {date}: {description}",

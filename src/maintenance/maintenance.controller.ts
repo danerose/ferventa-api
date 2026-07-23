@@ -70,7 +70,7 @@ export class MaintenanceController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
-  @Roles('admin', 'seller', 'warehouse')
+  @Roles('admin', 'seller', 'warehouse', 'mechanic')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Listar órdenes de mantenimiento con filtros' })
   findAll(
@@ -83,7 +83,7 @@ export class MaintenanceController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
-  @Roles('admin', 'seller', 'warehouse')
+  @Roles('admin', 'seller', 'warehouse', 'mechanic')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Obtener detalle de una orden de mantenimiento por ID' })
   findOne(@BranchId() branchId: string, @Param('id') id: string) {
@@ -92,7 +92,7 @@ export class MaintenanceController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
-  @Roles('admin', 'seller')
+  @Roles('admin', 'seller', 'mechanic')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Actualizar estado o mano de obra de una orden' })
   update(@BranchId() branchId: string, @Param('id') id: string, @Body() updateMaintenanceDto: UpdateMaintenanceDto) {
@@ -101,7 +101,7 @@ export class MaintenanceController {
 
   @Post(':id/items')
   @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
-  @Roles('admin', 'seller', 'warehouse')
+  @Roles('admin', 'seller', 'warehouse', 'mechanic')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Registrar refacción/insumo usado (Descuenta stock automáticamente)' })
   addItemUsed(
@@ -115,7 +115,7 @@ export class MaintenanceController {
 
   @Post(':id/evidence')
   @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
-  @Roles('admin', 'seller')
+  @Roles('admin', 'seller', 'mechanic')
   @ApiBearerAuth()
   @UseInterceptors(
     FilesInterceptor('photos', 5, {

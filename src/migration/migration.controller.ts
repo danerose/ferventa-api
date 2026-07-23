@@ -19,4 +19,12 @@ export class MigrationController {
   async migrateBranches() {
     return this.migrationService.migrateToBranches();
   }
+
+  @Post('usernames')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Migra los usuarios existentes que no tengan un nombre de usuario asignado. Genera un usuario único basado en su nombre.' })
+  @ApiResponse({ status: 200, description: 'Migración de nombres de usuario ejecutada exitosamente.' })
+  async migrateUsernames() {
+    return this.migrationService.migrateUsernames();
+  }
 }

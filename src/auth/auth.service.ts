@@ -50,7 +50,16 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto, ip: string, userAgent: string) {
-    const user = await this.usersService.findByEmail(loginDto.email);
+    const identifier = (loginDto.username || loginDto.email || '').trim();
+    if (!identifier) {
+      const i18n = I18nContext.current();
+      throw new BadRequestException(i18n ? i18n.t('common.errors.badRequest') : 'Se requiere un nombre de usuario o correo electrónico');
+    }
+
+    let user = await this.usersService.findByUsername(identifier);
+    if (!user) {
+      user = await this.usersService.findByEmail(identifier);
+    }
     
     // Set session expiration to 7 days in future for refresh token length
     const refreshExpiresInString = this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '7d');
@@ -59,7 +68,7 @@ export class AuthService {
 
     if (!user) {
       const i18n = I18nContext.current();
-      throw new UnauthorizedException(i18n ? i18n.t('common.errors.invalidCredentials') : 'El correo o la contraseña son incorrectos');
+      throw new UnauthorizedException(i18n ? i18n.t('common.errors.invalidCredentials') : 'El usuario/correo o la contraseña son incorrectos');
     }
 
     if (!user.isActive) {
@@ -88,7 +97,7 @@ export class AuthService {
         'Contraseña incorrecta',
       );
       const i18n = I18nContext.current();
-      throw new UnauthorizedException(i18n ? i18n.t('common.errors.invalidCredentials') : 'El correo o la contraseña son incorrectos');
+      throw new UnauthorizedException(i18n ? i18n.t('common.errors.invalidCredentials') : 'El usuario/correo o la contraseña son incorrectos');
     }
 
     // Create a successful session
@@ -113,6 +122,7 @@ export class AuthService {
       user: {
         id: user._id,
         name: user.name,
+        username: user.username || null,
         email: user.email,
         role: user.role.name,
         branches: user.branches || [],
@@ -158,6 +168,7 @@ export class AuthService {
   private generateAccessToken(user: UserDocument, sessionId: string): string {
     const payload = {
       sub: user._id,
+      username: user.username || null,
       email: user.email,
       role: {
         name: user.role.name,

@@ -1,12 +1,16 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional } from 'class-validator';
 import { i18nValidationMessage } from 'nestjs-i18n';
 
 export class LoginDto {
-  @ApiProperty({ example: 'admin@ferventa.com', description: 'Correo electrónico' })
-  @IsEmail({}, { message: i18nValidationMessage('validation.isEmail') })
-  @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
-  email: string;
+  @ApiPropertyOptional({ example: 'admin', description: 'Nombre de usuario o correo electrónico' })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  username?: string;
+
+  @ApiPropertyOptional({ example: 'admin@ferventa.com', description: 'Correo electrónico (opcional si se especifica username)' })
+  @IsOptional()
+  email?: string;
 
   @ApiProperty({ example: 'AdminPassword123!', description: 'Contraseña' })
   @IsString({ message: i18nValidationMessage('validation.isString') })

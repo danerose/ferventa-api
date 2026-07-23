@@ -8,6 +8,11 @@ export class CreateUserDto {
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   name: string;
 
+  @ApiProperty({ example: 'arojas', description: 'Nombre de usuario único (opcional, se auto-genera si no se provee)', required: false })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  username?: string;
+
   @ApiProperty({ example: 'alexis@example.com', description: 'Correo electrónico único', required: false })
   @IsEmail({}, { message: i18nValidationMessage('validation.isEmail') })
   @IsOptional()

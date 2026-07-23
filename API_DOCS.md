@@ -51,27 +51,45 @@ Base URL: `/api`
 **Request Body**:
 ```json
 {
-  "name": "string",
-  "email": "string",
-  "password": "string",
-  "phone": "string",
-  "roleId": "string",
+  "name": "Alexis Rojas",
+  "username": "alexis.rojas",
+  "email": "alexis@example.com",
+  "password": "Password123!",
+  "phone": "8118765432",
+  "roleId": "60d5ec49c6d48227b409748b",
   "branches": [
-    "string"
+    "60d5ec49c6d48227b409748c"
   ]
 }
 ```
+> **Nota**: `username`, `email` y `password` son opcionales. Si no se especifican, se autogeneran automáticamente (`username` basado en el nombre, `email` como `{username}@ferventa.com`, y `password` con una contraseña temporal segura).
 
 **Responses**:
-- `201`: Usuario creado exitosamente.
+- `201`: Usuario creado exitosamente. Devuelve los detalles del usuario creado junto con la contraseña temporal, mensaje formateado para WhatsApp y el `whatsappUrl` listo para ser abierto por el frontend.
   ```json
   {
     "success": true,
-    "data": null,
-    "message": "Usuario creado exitosamente."
+    "data": {
+      "user": {
+        "_id": "60d5ec49c6d48227b409748b",
+        "name": "Alexis Rojas",
+        "username": "alexis.rojas",
+        "email": "alexis.rojas@ferventa.com",
+        "phone": "8118765432",
+        "role": {
+          "_id": "60d5ec49c6d48227b409748a",
+          "name": "seller"
+        },
+        "isActive": true
+      },
+      "tempPassword": "a1b2c3d4!",
+      "message": "¡Hola Alexis Rojas! Tu cuenta en Ferventa ha sido creada exitosamente.\n\nDetalles de acceso:\n- Usuario: alexis.rojas\n- Correo: alexis.rojas@ferventa.com\n- Teléfono: 8118765432\n- Contraseña temporal: a1b2c3d4!\n\nPuedes iniciar sesión en el siguiente enlace:\n🔗 https://app.ferventa.com/login",
+      "whatsappUrl": "https://api.whatsapp.com/send?phone=528118765432&text=%C2%A1Hola%20Alexis%20Rojas!..."
+    },
+    "message": "Usuario creado exitosamente"
   }
   ```
-- `400`: Datos inválidos o correo ya registrado.
+- `400`: Datos inválidos, o correo / nombre de usuario ya registrado.
 
 ---
 
@@ -87,7 +105,15 @@ Base URL: `/api`
   ```json
   {
     "success": true,
-    "data": null,
+    "data": [
+      {
+        "_id": "60d5ec49c6d48227b409748b",
+        "name": "Alexis Rojas",
+        "username": "alexis.rojas",
+        "email": "alexis@example.com",
+        "phone": "8118765432"
+      }
+    ],
     "message": "Success"
   }
   ```
@@ -103,6 +129,95 @@ Base URL: `/api`
   {
     "success": true,
     "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /users/generate-username
+**Summary**: Generar un nombre de usuario único basado en el nombre de la persona (Solo Admin)
+
+**Parameters**:
+- `name` (query): Nombre completo de la persona (Required)
+
+**Responses**:
+- `200`: Nombre de usuario único disponible generado exitosamente
+  ```json
+  {
+    "success": true,
+    "data": {
+      "username": "alexis.rojas"
+    },
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /users/check-username
+**Summary**: Validar si un nombre de usuario ya existe o está disponible (Solo Admin)
+
+**Parameters**:
+- `username` (query): Nombre de usuario a validar (Required)
+
+**Responses**:
+- `200`: Estado de disponibilidad del nombre de usuario
+  ```json
+  {
+    "success": true,
+    "data": {
+      "exists": false,
+      "available": true,
+      "username": "alexis.rojas"
+    },
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /users/check-username/{username}
+**Summary**: Validar si un nombre de usuario ya existe por parámetro de ruta (Solo Admin)
+
+**Parameters**:
+- `username` (path): Nombre de usuario a validar (Required)
+
+**Responses**:
+- `200`: Estado de disponibilidad del nombre de usuario
+  ```json
+  {
+    "success": true,
+    "data": {
+      "exists": false,
+      "available": true,
+      "username": "alexis.rojas"
+    },
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [POST] /users/migrate-usernames
+**Summary**: Migrar usuarios existentes que no tengan un nombre de usuario asignado (Solo Admin)
+
+**Responses**:
+- `200`: Migración ejecutada exitosamente. Devuelve el número total de usuarios migrados y la lista de nombres asignados.
+  ```json
+  {
+    "success": true,
+    "data": {
+      "totalMigrated": 2,
+      "users": [
+        {
+          "id": "60d5ec49c6d48227b409748b",
+          "name": "Juan Pérez",
+          "username": "juan.perez",
+          "email": "juan@example.com"
+        }
+      ]
+    },
     "message": "Success"
   }
   ```
@@ -253,18 +368,27 @@ Base URL: `/api`
 ---
 
 ### [POST] /auth/login
-**Summary**: Iniciar sesión con correo y contraseña
+**Summary**: Iniciar sesión con nombre de usuario o correo electrónico y contraseña
 
 **Request Body**:
+Opción A (por Nombre de Usuario):
 ```json
 {
-  "email": "string",
-  "password": "string"
+  "username": "alexis.rojas",
+  "password": "AdminPassword123!"
 }
 ```
+Opción B (por Correo Electrónico):
+```json
+{
+  "email": "alexis.rojas@ferventa.com",
+  "password": "AdminPassword123!"
+}
+```
+> **Nota**: El sistema acepta indistintamente `username` o `email` en la petición. Los usuarios sin `username` asignado pueden ingresar con su correo electrónico sin problemas.
 
 **Responses**:
-- `200`: Sesión iniciada correctamente, tokens retornados.
+- `200`: Sesión iniciada correctamente, tokens y datos de usuario retornados.
   ```json
   {
     "success": true,
@@ -273,8 +397,9 @@ Base URL: `/api`
       "refreshToken": "eyJhbGciOiJIUzI1...",
       "user": {
         "id": "6a4e9cefd...",
-        "name": "Administrador Inicial",
-        "email": "admin@ferventa.com",
+        "name": "Alexis Rojas",
+        "username": "alexis.rojas",
+        "email": "alexis.rojas@ferventa.com",
         "role": "admin",
         "branches": [
           "6a5e6e9a0..."

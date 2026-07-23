@@ -9,6 +9,12 @@ export class UpdateUserDto {
   @IsOptional()
   name?: string;
 
+  @ApiPropertyOptional({ example: 'arojas', description: 'Nombre de usuario único' })
+  @Transform(({ value }) => value === '' ? undefined : value)
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  username?: string;
+
   @ApiPropertyOptional({ example: 'alexis@example.com', description: 'Correo electrónico' })
   @Transform(({ value }) => value === '' ? undefined : value)
   @IsEmail({}, { message: i18nValidationMessage('validation.isEmail') })

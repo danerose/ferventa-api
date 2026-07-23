@@ -18,6 +18,8 @@ import { Maintenance, MaintenanceDocument } from '../maintenance/schemas/mainten
 import { Quote, QuoteDocument } from '../quotes/schemas/quote.schema';
 import { Sale, SaleDocument } from '../sales/schemas/sale.schema';
 import { Role, RoleDocument } from '../users/schemas/role.schema';
+import { UsersService } from '../users/users.service';
+import { Inject, forwardRef } from '@nestjs/common';
 
 @Injectable()
 export class MigrationService {
@@ -41,6 +43,7 @@ export class MigrationService {
     @InjectModel(Quote.name) private quoteModel: Model<QuoteDocument>,
     @InjectModel(Sale.name) private saleModel: Model<SaleDocument>,
     private readonly appointmentsService: AppointmentsService,
+    @Inject(forwardRef(() => UsersService)) private readonly usersService: UsersService,
   ) {}
 
   async migrateToBranches() {
@@ -137,5 +140,9 @@ export class MigrationService {
         migratedRecords: results,
       },
     };
+  }
+
+  async migrateUsernames() {
+    return this.usersService.migrateUsernames();
   }
 }
