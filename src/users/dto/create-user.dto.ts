@@ -29,8 +29,8 @@ export class CreateUserDto {
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   phone: string;
 
-  @ApiProperty({ example: '60d5ec49c6d48227b409748b', description: 'ID del Rol asignado' })
-  @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
+  @ApiProperty({ example: '60d5ec49c6d48227b409748b o mechanic', description: 'ID o nombre del Rol asignado (ej. mechanic, admin, seller, warehouse)' })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   roleId: string;
 

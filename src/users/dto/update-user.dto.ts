@@ -27,8 +27,8 @@ export class UpdateUserDto {
   @IsOptional()
   password?: string;
 
-  @ApiPropertyOptional({ example: '60d5ec49c6d48227b409748b', description: 'ID de Rol' })
-  @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
+  @ApiPropertyOptional({ example: '60d5ec49c6d48227b409748b o mechanic', description: 'ID o nombre del Rol' })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsOptional()
   roleId?: string;
 

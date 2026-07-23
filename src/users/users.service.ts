@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, isValidObjectId } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from './schemas/user.schema';
 import { Role, RoleDocument } from './schemas/role.schema';
@@ -162,6 +162,16 @@ export class UsersService implements OnModuleInit {
     return user;
   }
 
+  async findRoleByIdOrName(roleIdOrName: string): Promise<RoleDocument | null> {
+    if (!roleIdOrName) return null;
+    const trimmed = roleIdOrName.trim();
+    if (isValidObjectId(trimmed)) {
+      const role = await this.roleModel.findById(trimmed);
+      if (role) return role;
+    }
+    return this.roleModel.findOne({ name: trimmed.toLowerCase() });
+  }
+
   async create(createUserDto: CreateUserDto): Promise<{ user: UserDocument; tempPassword?: string; message: string; whatsappUrl: string }> {
     let { email, password, username, name, phone } = createUserDto;
     
@@ -195,7 +205,7 @@ export class UsersService implements OnModuleInit {
       throw new BadRequestException(message);
     }
 
-    const role = await this.roleModel.findById(createUserDto.roleId);
+    const role = await this.findRoleByIdOrName(createUserDto.roleId);
     if (!role) {
       const i18n = I18nContext.current();
       throw new NotFoundException(i18n ? i18n.t('common.errors.roleNotFound') : 'El rol especificado no existe');
@@ -280,12 +290,12 @@ Puedes iniciar sesión en el siguiente enlace:
     }
 
     if (updateUserDto.roleId) {
-      const role = await this.roleModel.findById(updateUserDto.roleId);
+      const role = await this.findRoleByIdOrName(updateUserDto.roleId);
       if (!role) {
         const i18n = I18nContext.current();
         throw new NotFoundException(i18n ? i18n.t('common.errors.roleNotFound') : 'El rol especificado no existe');
       }
-      user.role = role;
+      user.role = role._id as any;
     }
 
     const updated = await user.save();
