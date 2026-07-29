@@ -1823,20 +1823,192 @@ Opción B (por Correo Electrónico):
 
 ---
 
-## Ventas (POS)
+## Servicios Predefinidos (Catálogo del Taller)
 
-### [POST] /sales
-**Summary**: Registrar una venta (Pago en efectivo o con tarjeta Mercado Pago Point)
+> Los servicios predefinidos son plantillas de trabajo (ej. "1er Mantenimiento") que agrupan mano de obra + insumos del inventario. Al agregar un servicio al carrito del POS, sus insumos se expanden automáticamente como ítems de venta. El servicio en sí **no vive en el inventario** — solo los insumos que lo componen.
+
+### [POST] /services
+**Summary**: Crear un servicio predefinido (Admin / Warehouse)
+
+> Un servicio tiene un nombre, precio base de mano de obra y una lista de insumos (productos del inventario). Al venderlo, los insumos se descuentan del stock de la sucursal activa.
 
 **Request Body**:
 ```json
 {
-  "quoteId": "string",
-  "customerId": "string",
-  "items": [
+  "name": "1er Mantenimiento",
+  "description": "Mantenimiento preventivo básico. El precio puede ajustarse según el vehículo.",
+  "basePrice": 450.00,
+  "isActive": true,
+  "supplies": [
+    {
+      "productId": "60d5ec49c6d48227b409748e",
+      "quantity": 4
+    },
+    {
+      "productId": "60d5ec49c6d48227b409748f",
+      "quantity": 1
+    }
+  ]
+}
+```
+
+**Campos**:
+| Campo | Tipo | Requerido | Descripción |
+|---|---|---|---|
+| `name` | string | ✅ | Nombre del servicio |
+| `description` | string | ❌ | Descripción breve |
+| `basePrice` | number | ✅ | Precio base de mano de obra (editable en el carrito) |
+| `isActive` | boolean | ❌ | Si aparece disponible en el POS (default: `true`) |
+| `supplies[]` | array | ❌ | Lista de insumos del inventario que se consumen |
+| `supplies[].productId` | string | ✅ | ID del producto/insumo del inventario |
+| `supplies[].quantity` | number | ✅ | Cantidad a descontar del inventario al vender |
+
+**Responses**:
+- `201`: Servicio creado exitosamente.
+  ```json
+  {
+    "success": true,
+    "data": {
+      "_id": "60d5ec49c6d48227b409749a",
+      "name": "1er Mantenimiento",
+      "description": "Mantenimiento preventivo básico.",
+      "basePrice": 450.00,
+      "isActive": true,
+      "supplies": [
+        {
+          "product": { "_id": "...", "name": "Aceite Motor 5W-30", "sku": "ACE-001" },
+          "quantity": 4
+        },
+        {
+          "product": { "_id": "...", "name": "Filtro de Aceite", "sku": "FIL-001" },
+          "quantity": 1
+        }
+      ]
+    },
+    "message": "Servicio creado exitosamente."
+  }
+  ```
+
+---
+
+### [GET] /services
+**Summary**: Listar todos los servicios predefinidos
+
+**Parameters**:
+- `isActive` (query): Filtrar solo activos (`true`/`false`). Por defecto devuelve todos.
+- `search` (query): Buscar por nombre del servicio.
+
+**Responses**:
+- `200`: Lista de servicios.
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "_id": "60d5ec49c6d48227b409749a",
+        "name": "1er Mantenimiento",
+        "description": "Mantenimiento preventivo básico.",
+        "basePrice": 450.00,
+        "isActive": true,
+        "supplies": [
+          {
+            "product": { "_id": "...", "name": "Aceite Motor 5W-30", "sku": "ACE-001", "sellingPrice": 120 },
+            "quantity": 4
+          }
+        ]
+      }
+    ],
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /services/{id}
+**Summary**: Obtener detalle de un servicio por ID
+
+**Parameters**:
+- `id` (path): ID del servicio (Required)
+
+**Responses**:
+- `200`: Detalle del servicio con insumos populados.
+
+---
+
+### [PATCH] /services/{id}
+**Summary**: Actualizar un servicio predefinido (Admin / Warehouse)
+
+**Parameters**:
+- `id` (path): ID del servicio (Required)
+
+**Request Body**:
+```json
+{
+  "name": "string",
+  "description": "string",
+  "basePrice": 0,
+  "isActive": true,
+  "supplies": [
     {
       "productId": "string",
-      "quantity": 0,
+      "quantity": 0
+    }
+  ]
+}
+```
+> **Nota**: `supplies` reemplaza **completamente** la lista de insumos si se incluye.
+
+**Responses**:
+- `200`: Servicio actualizado correctamente.
+
+---
+
+### [DELETE] /services/{id}
+**Summary**: Eliminar un servicio predefinido (Solo Admin)
+
+**Parameters**:
+- `id` (path): ID del servicio (Required)
+
+**Responses**:
+- `200`: Servicio eliminado.
+
+---
+
+## Ventas (POS)
+
+> ### 🔧 Flujo del POS con Servicios
+> 
+> 1. El vendedor abre el POS con la sucursal activa (header `x-branch-id`).
+> 2. Puede agregar al carrito:
+>    - **Productos** del inventario (`productId`)
+>    - **Servicios** predefinidos (`serviceId`) → el backend los expande a insumos + mano de obra
+> 3. Cualquier ítem en el carrito puede tener su precio editado manualmente mediante el campo `unitPrice`. Si se envía, sobreescribe el precio de catálogo.
+> 4. Al confirmar la venta, **todos los insumos** (productos + insumos de servicios) se descuentan del stock de la sucursal activa.
+
+### [POST] /sales
+**Summary**: Registrar una venta desde el POS (Productos, Servicios o mixto)
+
+**Headers**:
+- `x-branch-id`: ID de la sucursal activa (Obligatorio)
+
+**Request Body**:
+```json
+{
+  "customerId": "60d5ec49c6d48227b409748b",
+  "quoteId": "string",
+  "items": [
+    {
+      "type": "product",
+      "productId": "60d5ec49c6d48227b409748e",
+      "quantity": 2,
+      "unitPrice": 150.00,
+      "discount": 0
+    },
+    {
+      "type": "service",
+      "serviceId": "60d5ec49c6d48227b409749a",
+      "quantity": 1,
+      "unitPrice": 600.00,
       "discount": 0
     }
   ],
@@ -1846,31 +2018,103 @@ Opción B (por Correo Electrónico):
 }
 ```
 
+**Campos clave**:
+| Campo | Tipo | Requerido | Descripción |
+|---|---|---|---|
+| `customerId` | string | ✅* | ID del cliente (*requerido si no hay `quoteId`) |
+| `quoteId` | string | ❌ | ID de cotización origen (convierte la cotización) |
+| `items` | array | ✅ | Lista de ítems del carrito |
+| `items[].type` | string | ✅ | `"product"` o `"service"` |
+| `items[].productId` | string | ✅ si `type=product` | ID del producto del inventario |
+| `items[].serviceId` | string | ✅ si `type=service` | ID del servicio predefinido |
+| `items[].quantity` | number | ✅ | Cantidad |
+| `items[].unitPrice` | number | ❌ | Precio unitario **editado manualmente** en el carrito. Si se omite, se usa el precio de catálogo. |
+| `items[].discount` | number | ❌ | Descuento unitario |
+| `globalDiscount` | number | ❌ | Descuento global sobre el total |
+| `paymentMethod` | string | ✅ | `cash` \| `card` \| `transfer` |
+| `paymentReference` | string | ❌ | Referencia de pago (ej. Mercado Pago ID) |
+
+> **Comportamiento de los servicios**:
+> - El backend expande cada ítem de tipo `service` en sus insumos y los descuenta del stock.
+> - El nombre del servicio y su precio (`unitPrice` o `basePrice`) se guardan como línea separada en la venta.
+> - Los insumos del servicio quedan registrados en `items` con `origin: "service"` y la referencia al servicio.
+
 **Responses**:
 - `201`: Venta registrada exitosamente.
   ```json
   {
     "success": true,
-    "data": null,
+    "data": {
+      "_id": "...",
+      "folio": "SALE-20260729-4823",
+      "customer": { "_id": "...", "name": "Juan Pérez" },
+      "items": [
+        {
+          "type": "product",
+          "product": { "_id": "...", "name": "Filtro de aire", "sku": "FIL-002" },
+          "name": "Filtro de aire",
+          "sku": "FIL-002",
+          "quantity": 2,
+          "priceSnapshot": 150.00,
+          "discount": 0,
+          "origin": "direct"
+        },
+        {
+          "type": "service",
+          "serviceId": "...",
+          "name": "1er Mantenimiento",
+          "quantity": 1,
+          "priceSnapshot": 600.00,
+          "discount": 0,
+          "origin": "service",
+          "suppliesConsumed": [
+            { "product": "...", "name": "Aceite Motor 5W-30", "quantity": 4 },
+            { "product": "...", "name": "Filtro de Aceite", "quantity": 1 }
+          ]
+        }
+      ],
+      "subtotal": 900.00,
+      "discount": 0,
+      "total": 900.00,
+      "paymentMethod": "cash",
+      "seller": { "_id": "...", "name": "Alexis Rojas" },
+      "branch": { "_id": "...", "name": "Sucursal Caucel" },
+      "isCancelled": false,
+      "createdAt": "2026-07-29T17:00:00.000Z"
+    },
     "message": "Venta registrada exitosamente."
   }
   ```
+- `400`: Stock insuficiente, cliente no encontrado, cotización ya convertida/vencida.
 
 ---
 
 ### [GET] /sales
-**Summary**: Listar todas las ventas
+**Summary**: Listar todas las ventas con filtros
 
 **Parameters**:
-- `customerId` (query): Filtrar por ID del cliente 
-- `isCancelled` (query): Filtrar por estado de cancelación 
+- `customerId` (query): Filtrar por ID del cliente
+- `isCancelled` (query): Filtrar por estado de cancelación (`true`/`false`)
+- `hasService` (query): Filtrar ventas que incluyen al menos un servicio (`true`/`false`)
+- `startDate` (query): Fecha inicio (YYYY-MM-DD)
+- `endDate` (query): Fecha fin (YYYY-MM-DD)
 
 **Responses**:
 - `200`: 
   ```json
   {
     "success": true,
-    "data": null,
+    "data": [
+      {
+        "_id": "...",
+        "folio": "SALE-20260729-4823",
+        "customer": { "_id": "...", "name": "Juan Pérez" },
+        "total": 900.00,
+        "paymentMethod": "cash",
+        "isCancelled": false,
+        "createdAt": "2026-07-29T17:00:00.000Z"
+      }
+    ],
     "message": "Success"
   }
   ```
@@ -1891,7 +2135,7 @@ Opción B (por Correo Electrónico):
 ```
 
 **Responses**:
-- `200`: Venta cancelada y stock devuelto exitosamente.
+- `200`: Venta cancelada y stock devuelto exitosamente. Los insumos de servicios también se regresan al stock.
   ```json
   {
     "success": true,

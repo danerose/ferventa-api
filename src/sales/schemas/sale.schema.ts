@@ -9,12 +9,30 @@ import { Branch } from '../../branches/schemas/branch.schema';
 export type SaleDocument = Sale & Document;
 
 @Schema({ _id: false })
-export class SaleItem {
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Product', required: true })
-  product: Product;
+export class ConsumedSupply {
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Product' })
+  product: Product | any;
 
-  @Prop({ required: true })
-  sku: string;
+  @Prop()
+  name: string;
+
+  @Prop({ type: Number })
+  quantity: number;
+}
+
+@Schema({ _id: false })
+export class SaleItem {
+  @Prop({ required: true, enum: ['product', 'service'], default: 'product' })
+  type: string;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Product', required: false })
+  product?: Product | any;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'PredefinedService', required: false })
+  serviceId?: any;
+
+  @Prop({ required: false })
+  sku?: string;
 
   @Prop({ required: true })
   name: string;
@@ -27,6 +45,12 @@ export class SaleItem {
 
   @Prop({ type: Number, default: 0 })
   discount: number; // Unit discount amount
+
+  @Prop({ required: true, enum: ['direct', 'service'], default: 'direct' })
+  origin: string;
+
+  @Prop({ type: [ConsumedSupply], default: [] })
+  suppliesConsumed?: ConsumedSupply[];
 }
 
 @Schema({ timestamps: true })
@@ -52,7 +76,7 @@ export class Sale {
   @Prop({ required: true, type: Number })
   total: number;
 
-  @Prop({ required: true, type: String, enum: ['cash', 'card'] })
+  @Prop({ required: true, type: String, enum: ['cash', 'card', 'transfer'] })
   paymentMethod: string;
 
   @Prop({ type: String, default: '' })

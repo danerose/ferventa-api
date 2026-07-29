@@ -1,13 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Sale, SaleDocument } from './schemas/sale.schema';
+import { Sale, SaleDocument, SaleItem } from './schemas/sale.schema';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { CancelSaleDto } from './dto/cancel-sale.dto';
 import { CustomersService } from '../customers/customers.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { QuotesService } from '../quotes/quotes.service';
 import { MercadoPagoService } from './mercado-pago.service';
+import { ServicesService } from '../services/services.service';
 import { I18nContext } from 'nestjs-i18n';
 
 @Injectable()
@@ -18,12 +19,13 @@ export class SalesService {
     private readonly inventoryService: InventoryService,
     private readonly quotesService: QuotesService,
     private readonly mercadoPagoService: MercadoPagoService,
+    private readonly servicesService: ServicesService,
   ) {}
 
   async create(createSaleDto: CreateSaleDto, userId: string, branchId: string): Promise<SaleDocument> {
     const folio = this.generateFolio();
     let customerId = createSaleDto.customerId;
-    let saleItems: any[] = [];
+    let saleItems: SaleItem[] = [];
     let subtotal = 0;
     let discount = 0;
     let quoteRef: string | undefined = undefined;
@@ -73,12 +75,14 @@ export class SalesService {
         );
 
         saleItems.push({
+          type: 'product',
           product: (item.product as any)._id,
           sku: item.sku,
           name: item.name,
           quantity: item.quantity,
           priceSnapshot: item.priceSnapshot,
           discount: item.discount,
+          origin: 'direct',
         });
       }
 
@@ -93,54 +97,125 @@ export class SalesService {
       }
       if (!createSaleDto.items || createSaleDto.items.length === 0) {
         const i18n = I18nContext.current();
-        throw new BadRequestException(i18n ? i18n.t('common.errors.atLeastOneProductRequired') : 'Se requiere al menos un producto para registrar la venta');
+        throw new BadRequestException(i18n ? i18n.t('common.errors.atLeastOneProductRequired') : 'Se requiere al menos un producto o servicio para registrar la venta');
       }
 
       await this.customersService.findById(customerId, branchId);
 
       let itemsDiscount = 0;
 
-      // Check stock for all items
+      // First pass: Verify everything (Stock and existence)
       for (const item of createSaleDto.items) {
-        const product = await this.inventoryService.findProductById(item.productId, branchId);
-        if (product.stock < item.quantity) {
-          const i18n = I18nContext.current();
-          const message = i18n
-            ? i18n.t('common.errors.insufficientStockProduct', { args: { name: product.name, stock: product.stock, required: item.quantity } })
-            : `Stock insuficiente para ${product.name}. Disponible: ${product.stock}, Solicitado: ${item.quantity}`;
-          throw new BadRequestException(message);
+        if (item.type === 'product') {
+          if (!item.productId) throw new BadRequestException('Falta el productId en un ítem de tipo producto');
+          const product = await this.inventoryService.findProductById(item.productId, branchId);
+          if (product.stock < item.quantity) {
+            const i18n = I18nContext.current();
+            const message = i18n
+              ? i18n.t('common.errors.insufficientStockProduct', { args: { name: product.name, stock: product.stock, required: item.quantity } })
+              : `Stock insuficiente para ${product.name}. Disponible: ${product.stock}, Solicitado: ${item.quantity}`;
+            throw new BadRequestException(message);
+          }
+        } else if (item.type === 'service') {
+          if (!item.serviceId) throw new BadRequestException('Falta el serviceId en un ítem de tipo servicio');
+          const service = await this.servicesService.findById(item.serviceId);
+          if (!service.isActive) {
+            throw new BadRequestException(`El servicio ${service.name} no está activo.`);
+          }
+          // Verify stock for all service supplies
+          for (const supply of service.supplies) {
+            const product = await this.inventoryService.findProductById((supply.product as any)._id.toString(), branchId);
+            const requiredQty = supply.quantity * item.quantity;
+            if (product.stock < requiredQty) {
+              const i18n = I18nContext.current();
+              const message = i18n
+                ? i18n.t('common.errors.insufficientStockProduct', { args: { name: product.name, stock: product.stock, required: requiredQty } })
+                : `Stock insuficiente para insumo ${product.name} (Requerido para servicio ${service.name}). Disponible: ${product.stock}, Solicitado total: ${requiredQty}`;
+              throw new BadRequestException(message);
+            }
+          }
+        } else {
+          throw new BadRequestException(`Tipo de ítem desconocido: ${item.type}`);
         }
       }
 
-      // Process and deduct stock
+      // Second pass: Process and deduct stock
       for (const item of createSaleDto.items) {
-        const product = await this.inventoryService.findProductById(item.productId, branchId);
-        
-        await this.inventoryService.registerMovement(
-          {
-            productId: item.productId,
-            type: 'out',
-            quantity: item.quantity,
-            reason: `Venta Directa Folio #${folio}`,
-          },
-          userId,
-          branchId,
-        );
-
-        const priceSnapshot = product.sellingPrice;
         const itemDisc = item.discount || 0;
 
-        subtotal += priceSnapshot * item.quantity;
-        itemsDiscount += itemDisc * item.quantity;
+        if (item.type === 'product') {
+          const product = await this.inventoryService.findProductById(item.productId!, branchId);
+          
+          await this.inventoryService.registerMovement(
+            {
+              productId: item.productId!,
+              type: 'out',
+              quantity: item.quantity,
+              reason: `Venta Directa Folio #${folio}`,
+            },
+            userId,
+            branchId,
+          );
 
-        saleItems.push({
-          product: product._id,
-          sku: product.sku,
-          name: product.name,
-          quantity: item.quantity,
-          priceSnapshot,
-          discount: itemDisc,
-        });
+          const priceSnapshot = item.unitPrice !== undefined ? item.unitPrice : product.sellingPrice;
+
+          subtotal += priceSnapshot * item.quantity;
+          itemsDiscount += itemDisc * item.quantity;
+
+          saleItems.push({
+            type: 'product',
+            product: product._id,
+            sku: product.sku,
+            name: product.name,
+            quantity: item.quantity,
+            priceSnapshot,
+            discount: itemDisc,
+            origin: 'direct',
+          });
+
+        } else if (item.type === 'service') {
+          const service = await this.servicesService.findById(item.serviceId!);
+          const priceSnapshot = item.unitPrice !== undefined ? item.unitPrice : service.basePrice;
+          
+          const suppliesConsumed: any[] = [];
+
+          // Deduct stock for supplies
+          for (const supply of service.supplies) {
+            const product = await this.inventoryService.findProductById((supply.product as any)._id.toString(), branchId);
+            const qtyToDeduct = supply.quantity * item.quantity;
+            
+            await this.inventoryService.registerMovement(
+              {
+                productId: product._id.toString(),
+                type: 'out',
+                quantity: qtyToDeduct,
+                reason: `Insumo consumido en Venta Folio #${folio} (Servicio: ${service.name})`,
+              },
+              userId,
+              branchId,
+            );
+
+            suppliesConsumed.push({
+              product: product._id,
+              name: product.name,
+              quantity: qtyToDeduct,
+            });
+          }
+
+          subtotal += priceSnapshot * item.quantity;
+          itemsDiscount += itemDisc * item.quantity;
+
+          saleItems.push({
+            type: 'service',
+            serviceId: service._id,
+            name: service.name,
+            quantity: item.quantity,
+            priceSnapshot,
+            discount: itemDisc,
+            origin: 'service',
+            suppliesConsumed,
+          });
+        }
       }
 
       const globalDiscount = createSaleDto.globalDiscount || 0;
@@ -189,18 +264,35 @@ export class SalesService {
       throw new BadRequestException(i18n ? i18n.t('common.errors.alreadyCancelled') : 'Esta venta ya se encuentra cancelada');
     }
 
-    // Restore stock in inventory
+    // Restore stock in inventory for both direct products and consumed supplies
     for (const item of sale.items) {
-      await this.inventoryService.registerMovement(
-        {
-          productId: (item.product as any)._id.toString(),
-          type: 'in',
-          quantity: item.quantity,
-          reason: `Cancelación de Venta Folio #${sale.folio}`,
-        },
-        userId,
-        branchId,
-      );
+      if (item.type === 'product' && item.product) {
+        await this.inventoryService.registerMovement(
+          {
+            productId: (item.product as any)._id.toString(),
+            type: 'in',
+            quantity: item.quantity,
+            reason: `Cancelación de Venta Folio #${sale.folio}`,
+          },
+          userId,
+          branchId,
+        );
+      } else if (item.type === 'service' && item.suppliesConsumed) {
+        for (const supply of item.suppliesConsumed) {
+          if (supply.product) {
+            await this.inventoryService.registerMovement(
+              {
+                productId: (supply.product as any)._id.toString(),
+                type: 'in',
+                quantity: supply.quantity,
+                reason: `Devolución insumo por Cancelación de Venta #${sale.folio}`,
+              },
+              userId,
+              branchId,
+            );
+          }
+        }
+      }
     }
 
     sale.isCancelled = true;
@@ -211,13 +303,16 @@ export class SalesService {
     return (await sale.save()).populate(['customer', 'seller', 'cancelledBy']);
   }
 
-  async findAll(branchId: string, filters: { customerId?: string; isCancelled?: boolean }): Promise<SaleDocument[]> {
+  async findAll(branchId: string, filters: { customerId?: string; isCancelled?: boolean; hasService?: boolean }): Promise<SaleDocument[]> {
     const query: any = { branch: branchId };
     if (filters.customerId) {
       query.customer = filters.customerId;
     }
     if (filters.isCancelled !== undefined) {
       query.isCancelled = filters.isCancelled;
+    }
+    if (filters.hasService) {
+      query['items.type'] = 'service';
     }
     return this.saleModel
       .find(query)
@@ -235,7 +330,7 @@ export class SalesService {
     if (branchId) query.branch = branchId;
     const sale = await this.saleModel
       .findOne(query)
-      .populate(['customer', 'seller', 'items.product', 'quoteRef'])
+      .populate(['customer', 'seller', 'items.product', 'items.serviceId', 'quoteRef'])
       .exec();
     if (!sale) {
       const i18n = I18nContext.current();
@@ -247,7 +342,7 @@ export class SalesService {
   async findByFolio(folio: string, branchId: string): Promise<SaleDocument> {
     const sale = await this.saleModel
       .findOne({ folio: folio.toUpperCase().trim(), branch: branchId })
-      .populate(['customer', 'seller', 'items.product', 'quoteRef'])
+      .populate(['customer', 'seller', 'items.product', 'items.serviceId', 'quoteRef'])
       .exec();
     if (!sale) {
       const i18n = I18nContext.current();

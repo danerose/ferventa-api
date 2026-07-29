@@ -23,6 +23,7 @@ import { ReportsModule } from './reports/reports.module';
 import { BranchesModule } from './branches/branches.module';
 import { MigrationModule } from './migration/migration.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { ServicesModule } from './services/services.module';
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { AttendanceModule } from './attendance/attendance.module';
     BranchesModule,
     MigrationModule,
     AttendanceModule,
+    ServicesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

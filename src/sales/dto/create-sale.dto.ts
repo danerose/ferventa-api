@@ -14,16 +14,32 @@ import { Type } from 'class-transformer';
 import { i18nValidationMessage } from 'nestjs-i18n';
 
 export class SaleItemDto {
-  @ApiProperty({ example: '60d5ec49c6d48227b409748e', description: 'ID del producto' })
-  @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
+  @ApiProperty({ example: 'product', enum: ['product', 'service'], description: 'Tipo de ítem' })
+  @IsEnum(['product', 'service'], { message: i18nValidationMessage('validation.isEnum') })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
-  productId: string;
+  type: string;
+
+  @ApiPropertyOptional({ example: '60d5ec49c6d48227b409748e', description: 'ID del producto' })
+  @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
+  @IsOptional()
+  productId?: string;
+
+  @ApiPropertyOptional({ example: '60d5ec49c6d48227b409749a', description: 'ID del servicio predefinido' })
+  @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
+  @IsOptional()
+  serviceId?: string;
 
   @ApiProperty({ example: 2, description: 'Cantidad vendida' })
   @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })
   @Min(1, { message: i18nValidationMessage('validation.min') })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   quantity: number;
+
+  @ApiPropertyOptional({ example: 150.0, description: 'Precio unitario (Si se envía, sobreescribe el precio de catálogo)' })
+  @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })
+  @Min(0, { message: i18nValidationMessage('validation.min') })
+  @IsOptional()
+  unitPrice?: number;
 
   @ApiPropertyOptional({ example: 10.0, description: 'Descuento unitario' })
   @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })
@@ -56,8 +72,8 @@ export class CreateSaleDto {
   @IsOptional()
   globalDiscount?: number;
 
-  @ApiProperty({ example: 'cash', enum: ['cash', 'card'], description: 'Método de pago' })
-  @IsEnum(['cash', 'card'], { message: i18nValidationMessage('validation.isEnum') })
+  @ApiProperty({ example: 'cash', enum: ['cash', 'card', 'transfer'], description: 'Método de pago' })
+  @IsEnum(['cash', 'card', 'transfer'], { message: i18nValidationMessage('validation.isEnum') })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   paymentMethod: string;
 

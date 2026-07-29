@@ -60,13 +60,16 @@ export class SalesController {
   @ApiOperation({ summary: 'Listar todas las ventas' })
   @ApiQuery({ name: 'customerId', required: false, description: 'Filtrar por ID del cliente' })
   @ApiQuery({ name: 'isCancelled', required: false, type: Boolean, description: 'Filtrar por estado de cancelación' })
+  @ApiQuery({ name: 'hasService', required: false, type: Boolean, description: 'Filtrar por si incluye servicios' })
   findAll(
     @BranchId() branchId: string,
     @Query('customerId') customerId?: string,
     @Query('isCancelled') isCancelled?: string,
+    @Query('hasService') hasService?: string,
   ) {
     const isCancelledBool = isCancelled === undefined ? undefined : isCancelled === 'true';
-    return this.salesService.findAll(branchId, { customerId, isCancelled: isCancelledBool });
+    const hasServiceBool = hasService === undefined ? undefined : hasService === 'true';
+    return this.salesService.findAll(branchId, { customerId, isCancelled: isCancelledBool, hasService: hasServiceBool });
   }
 
   @Get(':id')

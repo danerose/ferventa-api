@@ -7,6 +7,7 @@ import { CustomersModule } from '../customers/customers.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { QuotesModule } from '../quotes/quotes.module';
 import { MercadoPagoService } from './mercado-pago.service';
+import { ServicesModule } from '../services/services.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { MercadoPagoService } from './mercado-pago.service';
     CustomersModule,
     InventoryModule,
     QuotesModule,
+    ServicesModule,
   ],
   controllers: [SalesController],
   providers: [SalesService, MercadoPagoService],
