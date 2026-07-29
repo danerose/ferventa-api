@@ -12,6 +12,13 @@
       "update": "User updated successfully",
       "delete": "User deleted successfully",
       "passwordReset": "Password reset successfully"
+    },
+    "attendance": {
+      "clockIn": "Clock in registered successfully",
+      "clockOut": "Clock out registered successfully",
+      "startBreak": "Break start registered successfully",
+      "endBreak": "Break end registered successfully",
+      "updated": "Attendance record updated successfully"
     }
   },
   "errors": {
@@ -87,6 +94,14 @@
     "insufficientStockProduct": "Insufficient stock for {name}. Available: {stock}, Required: {required}",
     "onlyImagesAllowed": "Only JPG, JPEG or PNG files are allowed",
     "branchIdRequired": "The x-branch-id header is required for this request",
-    "branchAccessDenied": "You do not have access to this branch"
+    "branchAccessDenied": "You do not have access to this branch",
+    "alreadyClockedIn": "You already have an active clock in record",
+    "notClockedIn": "You have not clocked in for this shift",
+    "alreadyClockedOut": "You have already clocked out of this shift",
+    "alreadyOnBreak": "You are already on a break",
+    "notOnBreak": "You are not currently on a break",
+    "cannotClockOutOnBreak": "You must end your break before clocking out",
+    "attendanceNotFound": "Attendance record not found",
+    "invalidPeriod": "Invalid period. Use weekly, biweekly or monthly"
   }
 }

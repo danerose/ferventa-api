@@ -2154,3 +2154,286 @@ Opción B (por Correo Electrónico):
 
 ---
 
+## Asistencia y Control de Horarios (Attendance)
+
+### [POST] /attendance/clock-in
+**Summary**: Registrar entrada (Clock In) para el turno del usuario
+
+**Headers**:
+- `x-branch-id`: ID de la sucursal activa (Obligatorio)
+
+**Request Body**:
+```json
+{
+  "note": "Llegada a tiempo"
+}
+```
+> **Nota**: `note` es opcional.
+
+**Responses**:
+- `201`: Entrada registrada exitosamente.
+  ```json
+  {
+    "success": true,
+    "message": "Entrada registrada exitosamente",
+    "data": {
+      "_id": "66a7b123c9e48227b409749a",
+      "user": "60d5ec49c6d48227b409748b",
+      "branch": "60d5ec49c6d48227b409748c",
+      "date": "2026-07-29",
+      "clockIn": "2026-07-29T09:00:00.000Z",
+      "clockOut": null,
+      "breaks": [],
+      "status": "working",
+      "totalWorkMinutes": 0,
+      "totalBreakMinutes": 0,
+      "netWorkMinutes": 0,
+      "clockInNote": "Llegada a tiempo"
+    }
+  }
+  ```
+
+---
+
+### [POST] /attendance/clock-out
+**Summary**: Registrar salida (Clock Out) del turno del usuario
+
+**Request Body**:
+```json
+{
+  "note": "Fin de turno laboral"
+}
+```
+> **Nota**: `note` es opcional.
+
+**Responses**:
+- `200`: Salida registrada exitosamente.
+  ```json
+  {
+    "success": true,
+    "message": "Salida registrada exitosamente",
+    "data": {
+      "_id": "66a7b123c9e48227b409749a",
+      "user": "60d5ec49c6d48227b409748b",
+      "branch": "60d5ec49c6d48227b409748c",
+      "date": "2026-07-29",
+      "clockIn": "2026-07-29T09:00:00.000Z",
+      "clockOut": "2026-07-29T18:00:00.000Z",
+      "breaks": [
+        {
+          "_id": "66a7b200c9e48227b409749b",
+          "startTime": "2026-07-29T14:00:00.000Z",
+          "endTime": "2026-07-29T15:00:00.000Z",
+          "durationMinutes": 60,
+          "note": "Hora de comida"
+        }
+      ],
+      "status": "completed",
+      "totalWorkMinutes": 540,
+      "totalBreakMinutes": 60,
+      "netWorkMinutes": 480,
+      "clockInNote": "Llegada a tiempo",
+      "clockOutNote": "Fin de turno laboral"
+    }
+  }
+  ```
+
+---
+
+### [POST] /attendance/break/start
+**Summary**: Iniciar descanso / hora de comida durante el turno
+
+**Request Body**:
+```json
+{
+  "note": "Hora de comida"
+}
+```
+> **Nota**: `note` es opcional.
+
+**Responses**:
+- `200`: Inicio de descanso registrado exitosamente.
+  ```json
+  {
+    "success": true,
+    "message": "Inicio de descanso registrado exitosamente",
+    "data": {
+      "_id": "66a7b123c9e48227b409749a",
+      "status": "on_break",
+      "breaks": [
+        {
+          "startTime": "2026-07-29T14:00:00.000Z",
+          "endTime": null,
+          "durationMinutes": 0,
+          "note": "Hora de comida"
+        }
+      ]
+    }
+  }
+  ```
+
+---
+
+### [POST] /attendance/break/end
+**Summary**: Finalizar descanso / hora de comida actual
+
+**Responses**:
+- `200`: Fin de descanso registrado exitosamente.
+  ```json
+  {
+    "success": true,
+    "message": "Fin de descanso registrado exitosamente",
+    "data": {
+      "_id": "66a7b123c9e48227b409749a",
+      "status": "working",
+      "totalBreakMinutes": 60,
+      "breaks": [
+        {
+          "startTime": "2026-07-29T14:00:00.000Z",
+          "endTime": "2026-07-29T15:00:00.000Z",
+          "durationMinutes": 60,
+          "note": "Hora de comida"
+        }
+      ]
+    }
+  }
+  ```
+
+---
+
+### [GET] /attendance/today
+**Summary**: Obtener el estado de asistencia actual del usuario para hoy (si está trabajando, en receso o fuera de turno)
+
+**Responses**:
+- `200`: Estado de asistencia de hoy.
+  ```json
+  {
+    "success": true,
+    "data": {
+      "hasActiveShift": true,
+      "status": "on_break",
+      "attendance": { ... },
+      "currentWorkMinutes": 300,
+      "currentWorkHours": 5,
+      "totalBreakMinutes": 30,
+      "totalBreakHours": 0.5,
+      "netWorkMinutes": 270,
+      "netWorkHours": 4.5,
+      "activeBreak": {
+        "startTime": "2026-07-29T14:00:00.000Z",
+        "durationMinutes": 30,
+        "note": "Hora de comida"
+      }
+    }
+  }
+  ```
+
+---
+
+### [GET] /attendance/my-records
+**Summary**: Obtener mi historial de registros de asistencia
+
+**Query Parameters**:
+- `startDate`: Fecha inicio (YYYY-MM-DD) [Opcional]
+- `endDate`: Fecha fin (YYYY-MM-DD) [Opcional]
+
+**Responses**:
+- `200`: Lista de registros personales de asistencia.
+
+---
+
+### [GET] /attendance/admin/records
+**Summary**: Listar todos los registros de asistencia con filtros (Solo Admin)
+
+**Query Parameters**:
+- `branchId`: ID de la sucursal [Opcional]
+- `userId`: ID del usuario [Opcional]
+- `startDate`: Fecha inicio (YYYY-MM-DD) [Opcional]
+- `endDate`: Fecha fin (YYYY-MM-DD) [Opcional]
+- `status`: Estatus (`working`, `on_break`, `completed`) [Opcional]
+
+**Responses**:
+- `200`: Lista filtrada de registros con datos de usuario y sucursal poblados.
+
+---
+
+### [GET] /attendance/admin/summary
+**Summary**: Obtener resumen de horas trabajadas semanal, quincenal, mensual o personalizado (Solo Admin)
+
+**Query Parameters**:
+- `branchId`: ID de la sucursal [Opcional]
+- `period`: `weekly`, `biweekly`, `monthly`, `custom` [Default: `weekly`]
+- `startDate`: Fecha inicio en caso de `period=custom` (YYYY-MM-DD) [Opcional]
+- `endDate`: Fecha fin en caso de `period=custom` (YYYY-MM-DD) [Opcional]
+
+**Responses**:
+- `200`: Resumen del período por usuario y sucursal.
+  ```json
+  {
+    "success": true,
+    "data": {
+      "period": "weekly",
+      "range": {
+        "startDate": "2026-07-22",
+        "endDate": "2026-07-29"
+      },
+      "usersSummary": [
+        {
+          "userId": "60d5ec49c6d48227b409748b",
+          "userName": "Alexis Rojas",
+          "userEmail": "alexis@ferventa.com",
+          "branchId": "60d5ec49c6d48227b409748c",
+          "branchName": "Sucursal Matriz",
+          "totalShifts": 5,
+          "completedShifts": 5,
+          "totalWorkMinutes": 2700,
+          "totalWorkHours": 45,
+          "totalBreakMinutes": 300,
+          "totalBreakHours": 5,
+          "netWorkMinutes": 2400,
+          "netWorkHours": 40
+        }
+      ]
+    }
+  }
+  ```
+
+---
+
+### [GET] /attendance/admin/user-breakdown/:userId
+**Summary**: Obtener desglose detallado de asistencia y descansos para un usuario específico (Solo Admin)
+
+**Query Parameters**:
+- `startDate`: Fecha inicio (YYYY-MM-DD) [Opcional]
+- `endDate`: Fecha fin (YYYY-MM-DD) [Opcional]
+
+**Responses**:
+- `200`: Desglose detallado de turnos, descansos e indicadores totales acumulados.
+
+---
+
+### [PATCH] /attendance/admin/:id
+**Summary**: Modificar/Ajustar manualmente un registro de asistencia (Solo Admin)
+
+**Request Body**:
+```json
+{
+  "clockIn": "2026-07-29T08:30:00.000Z",
+  "clockOut": "2026-07-29T17:30:00.000Z",
+  "adminNotes": "Ajuste manual de hora de llegada"
+}
+```
+
+**Responses**:
+- `200`: Registro de asistencia actualizado exitosamente.
+  ```json
+  {
+    "success": true,
+    "message": "Registro de asistencia actualizado exitosamente",
+    "data": { ... }
+  }
+  ```
+
+---
+
+

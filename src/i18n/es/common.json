@@ -12,6 +12,13 @@
       "update": "Usuario actualizado exitosamente",
       "delete": "Usuario eliminado exitosamente",
       "passwordReset": "Contraseña restablecida exitosamente"
+    },
+    "attendance": {
+      "clockIn": "Entrada registrada exitosamente",
+      "clockOut": "Salida registrada exitosamente",
+      "startBreak": "Inicio de descanso registrado exitosamente",
+      "endBreak": "Fin de descanso registrado exitosamente",
+      "updated": "Registro de asistencia actualizado exitosamente"
     }
   },
   "errors": {
@@ -87,6 +94,14 @@
     "insufficientStockProduct": "Stock insuficiente para {name}. Disponible: {stock}, Requerido: {required}",
     "onlyImagesAllowed": "Solo se permiten archivos JPG, JPEG o PNG",
     "branchIdRequired": "El header x-branch-id es obligatorio para esta petición",
-    "branchAccessDenied": "No tienes acceso a esta sucursal"
+    "branchAccessDenied": "No tienes acceso a esta sucursal",
+    "alreadyClockedIn": "Ya tienes un registro de entrada activo",
+    "notClockedIn": "No has registrado tu entrada para este turno",
+    "alreadyClockedOut": "Ya has registrado tu salida de este turno",
+    "alreadyOnBreak": "Ya te encuentras en un descanso",
+    "notOnBreak": "No te encuentras en un descanso actualmente",
+    "cannotClockOutOnBreak": "Debes finalizar tu descanso antes de registrar tu salida",
+    "attendanceNotFound": "Registro de asistencia no encontrado",
+    "invalidPeriod": "Período no válido. Usa semanal, quincenal o mensual"
   }
 }

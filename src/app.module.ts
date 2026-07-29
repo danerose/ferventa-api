@@ -22,6 +22,7 @@ import { SalesModule } from './sales/sales.module';
 import { ReportsModule } from './reports/reports.module';
 import { BranchesModule } from './branches/branches.module';
 import { MigrationModule } from './migration/migration.module';
+import { AttendanceModule } from './attendance/attendance.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { MigrationModule } from './migration/migration.module';
     ReportsModule,
     BranchesModule,
     MigrationModule,
+    AttendanceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
