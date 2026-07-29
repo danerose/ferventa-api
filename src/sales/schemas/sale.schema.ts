@@ -9,18 +9,6 @@ import { Branch } from '../../branches/schemas/branch.schema';
 export type SaleDocument = Sale & Document;
 
 @Schema({ _id: false })
-export class ConsumedSupply {
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Product' })
-  product: Product | any;
-
-  @Prop()
-  name: string;
-
-  @Prop({ type: Number })
-  quantity: number;
-}
-
-@Schema({ _id: false })
 export class SaleItem {
   @Prop({ required: true, enum: ['product', 'service'], default: 'product' })
   type: string;
@@ -48,9 +36,6 @@ export class SaleItem {
 
   @Prop({ required: true, enum: ['direct', 'service'], default: 'direct' })
   origin: string;
-
-  @Prop({ type: [ConsumedSupply], default: [] })
-  suppliesConsumed?: ConsumedSupply[];
 }
 
 @Schema({ timestamps: true })
@@ -58,8 +43,8 @@ export class Sale {
   @Prop({ required: true, unique: true, index: true, trim: true })
   folio: string;
 
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Customer', required: true, index: true })
-  customer: Customer;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Customer', required: false, index: true })
+  customer?: Customer;
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Quote', required: false, index: true })
   quoteRef?: Quote;

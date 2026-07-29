@@ -2021,7 +2021,7 @@ Opción B (por Correo Electrónico):
 **Campos clave**:
 | Campo | Tipo | Requerido | Descripción |
 |---|---|---|---|
-| `customerId` | string | ✅* | ID del cliente (*requerido si no hay `quoteId`) |
+| `customerId` | string | ❌ | ID del cliente (Opcional para público en general) |
 | `quoteId` | string | ❌ | ID de cotización origen (convierte la cotización) |
 | `items` | array | ✅ | Lista de ítems del carrito |
 | `items[].type` | string | ✅ | `"product"` o `"service"` |
@@ -2035,9 +2035,12 @@ Opción B (por Correo Electrónico):
 | `paymentReference` | string | ❌ | Referencia de pago (ej. Mercado Pago ID) |
 
 > **Comportamiento de los servicios**:
-> - El backend expande cada ítem de tipo `service` en sus insumos y los descuenta del stock.
+> - El backend **NO** expande los servicios en sus insumos automáticamente. 
+> - El servicio funciona únicamente como cobro de mano de obra.
+> - Si se consumen insumos, el Frontend debe enviarlos como ítems adicionales de tipo `"product"` dentro del arreglo `items`.
 > - El nombre del servicio y su precio (`unitPrice` o `basePrice`) se guardan como línea separada en la venta.
-> - Los insumos del servicio quedan registrados en `items` con `origin: "service"` y la referencia al servicio.
+> 
+> ⚠️ **ATENCIÓN FRONTEND**: Cuando envíen los insumos al carrito, **asegúrense de extraer y enviar el campo `productId`** en el objeto. Un error muy común es enviar `{ "type": "product", "quantity": 1 }` omitiendo el `productId` porque el objeto original del insumo venía anidado y su ID estaba en `_id`. **Si falta el `productId` en ítems de tipo producto, el API rechazará la venta con error 400**.
 
 **Responses**:
 - `201`: Venta registrada exitosamente.

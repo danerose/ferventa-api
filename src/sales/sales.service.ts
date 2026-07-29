@@ -91,16 +91,14 @@ export class SalesService {
 
     } else {
       // 2. Direct POS sale (no quote)
-      if (!customerId) {
-        const i18n = I18nContext.current();
-        throw new BadRequestException(i18n ? i18n.t('common.errors.customerIdRequired') : 'El ID del cliente es requerido para ventas directas');
-      }
       if (!createSaleDto.items || createSaleDto.items.length === 0) {
         const i18n = I18nContext.current();
         throw new BadRequestException(i18n ? i18n.t('common.errors.atLeastOneProductRequired') : 'Se requiere al menos un producto o servicio para registrar la venta');
       }
 
-      await this.customersService.findById(customerId, branchId);
+      if (customerId) {
+        await this.customersService.findById(customerId, branchId);
+      }
 
       let itemsDiscount = 0;
 
@@ -121,18 +119,6 @@ export class SalesService {
           const service = await this.servicesService.findById(item.serviceId);
           if (!service.isActive) {
             throw new BadRequestException(`El servicio ${service.name} no está activo.`);
-          }
-          // Verify stock for all service supplies
-          for (const supply of service.supplies) {
-            const product = await this.inventoryService.findProductById((supply.product as any)._id.toString(), branchId);
-            const requiredQty = supply.quantity * item.quantity;
-            if (product.stock < requiredQty) {
-              const i18n = I18nContext.current();
-              const message = i18n
-                ? i18n.t('common.errors.insufficientStockProduct', { args: { name: product.name, stock: product.stock, required: requiredQty } })
-                : `Stock insuficiente para insumo ${product.name} (Requerido para servicio ${service.name}). Disponible: ${product.stock}, Solicitado total: ${requiredQty}`;
-              throw new BadRequestException(message);
-            }
           }
         } else {
           throw new BadRequestException(`Tipo de ítem desconocido: ${item.type}`);
@@ -176,31 +162,6 @@ export class SalesService {
         } else if (item.type === 'service') {
           const service = await this.servicesService.findById(item.serviceId!);
           const priceSnapshot = item.unitPrice !== undefined ? item.unitPrice : service.basePrice;
-          
-          const suppliesConsumed: any[] = [];
-
-          // Deduct stock for supplies
-          for (const supply of service.supplies) {
-            const product = await this.inventoryService.findProductById((supply.product as any)._id.toString(), branchId);
-            const qtyToDeduct = supply.quantity * item.quantity;
-            
-            await this.inventoryService.registerMovement(
-              {
-                productId: product._id.toString(),
-                type: 'out',
-                quantity: qtyToDeduct,
-                reason: `Insumo consumido en Venta Folio #${folio} (Servicio: ${service.name})`,
-              },
-              userId,
-              branchId,
-            );
-
-            suppliesConsumed.push({
-              product: product._id,
-              name: product.name,
-              quantity: qtyToDeduct,
-            });
-          }
 
           subtotal += priceSnapshot * item.quantity;
           itemsDiscount += itemDisc * item.quantity;
@@ -213,7 +174,6 @@ export class SalesService {
             priceSnapshot,
             discount: itemDisc,
             origin: 'service',
-            suppliesConsumed,
           });
         }
       }
@@ -264,7 +224,7 @@ export class SalesService {
       throw new BadRequestException(i18n ? i18n.t('common.errors.alreadyCancelled') : 'Esta venta ya se encuentra cancelada');
     }
 
-    // Restore stock in inventory for both direct products and consumed supplies
+    // Restore stock in inventory for direct products
     for (const item of sale.items) {
       if (item.type === 'product' && item.product) {
         await this.inventoryService.registerMovement(
@@ -277,21 +237,6 @@ export class SalesService {
           userId,
           branchId,
         );
-      } else if (item.type === 'service' && item.suppliesConsumed) {
-        for (const supply of item.suppliesConsumed) {
-          if (supply.product) {
-            await this.inventoryService.registerMovement(
-              {
-                productId: (supply.product as any)._id.toString(),
-                type: 'in',
-                quantity: supply.quantity,
-                reason: `Devolución insumo por Cancelación de Venta #${sale.folio}`,
-              },
-              userId,
-              branchId,
-            );
-          }
-        }
       }
     }
 
