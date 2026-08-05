@@ -11,6 +11,11 @@ import {
 import { i18nValidationMessage } from 'nestjs-i18n';
 
 export class UpdateProductDto {
+  @ApiPropertyOptional({ example: 'SKU-123456', description: 'Código único del producto (SKU)' })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  sku?: string;
+
   @ApiPropertyOptional({ example: 'Balatas Delanteras de Cerámica', description: 'Nombre del producto' })
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsOptional()

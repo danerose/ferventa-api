@@ -187,6 +187,18 @@ export class InventoryService {
   async updateProduct(id: string, branchId: string, updateProductDto: UpdateProductDto): Promise<ProductDocument> {
     const product = await this.findProductById(id, branchId);
 
+    if (updateProductDto.sku) {
+      const newSku = updateProductDto.sku.toUpperCase();
+      if (newSku !== product.sku) {
+        const existing = await this.productModel.findOne({ sku: newSku, branch: branchId, _id: { $ne: id } });
+        if (existing) {
+          const i18n = I18nContext.current();
+          throw new BadRequestException(i18n ? i18n.t('common.errors.skuRegistered') : 'Ya existe un producto registrado con este SKU');
+        }
+        product.sku = newSku;
+      }
+    }
+
     if (updateProductDto.brandId) {
       const brandExists = await this.brandModel.exists({ _id: updateProductDto.brandId, branch: branchId });
       if (!brandExists) {
