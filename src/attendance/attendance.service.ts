@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, isValidObjectId } from 'mongoose';
 import { I18nContext } from 'nestjs-i18n';
 import { Attendance, AttendanceDocument } from './schemas/attendance.schema';
+import { User, UserDocument } from '../users/schemas/user.schema';
 import { ClockInDto } from './dto/clock-in.dto';
 import { ClockOutDto } from './dto/clock-out.dto';
 import { StartBreakDto } from './dto/start-break.dto';
@@ -15,6 +16,8 @@ export class AttendanceService {
   constructor(
     @InjectModel(Attendance.name)
     private readonly attendanceModel: Model<AttendanceDocument>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
   ) {}
 
   private getTodayDateString(): string {
@@ -263,6 +266,185 @@ export class AttendanceService {
   }
 
   /**
+   * Obtener el estado de asistencia de todos los usuarios asignados a una sucursal para hoy
+   */
+  async getBranchTodayStatus(branchId: string) {
+    if (!branchId) {
+      const i18n = I18nContext.current();
+      throw new BadRequestException(
+        i18n ? i18n.t('common.errors.branchIdRequired') : 'Se requiere el ID de la sucursal',
+      );
+    }
+
+    const branchObjId = isValidObjectId(branchId) ? new Types.ObjectId(branchId) : branchId;
+    const todayStr = this.getTodayDateString();
+
+    // 1. Obtener usuarios activos asignados a la sucursal
+    const assignedUsers = await this.userModel
+      .find({
+        branches: branchObjId as any,
+        isActive: true,
+        deletedAt: null,
+      })
+      .populate('role', 'name description')
+      .exec();
+
+    // 2. Obtener registros de asistencia de hoy o turnos activos para esta sucursal
+    const todayRecords = await this.attendanceModel
+      .find({
+        branch: branchObjId as any,
+        $or: [{ date: todayStr }, { clockOut: null }],
+      })
+      .populate({
+        path: 'user',
+        match: { deletedAt: null },
+        select: 'name email username role deletedAt',
+      })
+      .populate('branch', 'name city')
+      .exec();
+
+    // Mapear el registro de asistencia por usuario (el turno activo tiene prioridad, ignorando eliminados)
+    const userAttendanceMap = new Map<string, AttendanceDocument>();
+    for (const record of todayRecords) {
+      if (!record.user || (record.user as any).deletedAt) continue;
+      const uId = String((record.user as any)._id || (record.user as any).id);
+      const existing = userAttendanceMap.get(uId);
+      if (!existing || (!record.clockOut && existing.clockOut)) {
+        userAttendanceMap.set(uId, record);
+      }
+    }
+
+    // Unir lista de usuarios asignados y cualquier otro usuario activo que haya registrado entrada hoy
+    const allUsersMap = new Map<string, any>();
+    for (const u of assignedUsers) {
+      if (u.deletedAt) continue;
+      const uId = String(u._id);
+      allUsersMap.set(uId, u);
+    }
+    for (const record of todayRecords) {
+      if (record.user && typeof record.user === 'object' && !(record.user as any).deletedAt) {
+        const uId = String((record.user as any)._id || (record.user as any).id);
+        if (!allUsersMap.has(uId)) {
+          allUsersMap.set(uId, record.user);
+        }
+      }
+    }
+
+    const now = new Date();
+    const userStatuses: any[] = [];
+
+    let totalWorking = 0;
+    let totalOnBreak = 0;
+    let totalCompleted = 0;
+    let totalOffShift = 0;
+
+    for (const [uId, userObj] of allUsersMap.entries()) {
+      const record = userAttendanceMap.get(uId);
+
+      if (record && !record.clockOut) {
+        // Turno activo
+        const clockInTime = new Date(record.clockIn).getTime();
+        const currentWorkMinutes = Math.max(0, Math.round((now.getTime() - clockInTime) / 60000));
+        let totalBreakMinutes = record.totalBreakMinutes || 0;
+        let activeBreak: any = null;
+
+        const ongoingBreak = record.breaks?.find((b) => !b.endTime);
+        if (ongoingBreak) {
+          const bStart = new Date(ongoingBreak.startTime).getTime();
+          const ongoingBreakMinutes = Math.max(0, Math.round((now.getTime() - bStart) / 60000));
+          activeBreak = {
+            startTime: ongoingBreak.startTime,
+            durationMinutes: ongoingBreakMinutes,
+            note: ongoingBreak.note,
+          };
+          totalBreakMinutes += ongoingBreakMinutes;
+        }
+
+        const status = record.status;
+        if (status === 'on_break') totalOnBreak++;
+        else totalWorking++;
+
+        userStatuses.push({
+          user: {
+            _id: userObj._id || userObj.id,
+            name: userObj.name,
+            email: userObj.email,
+            username: userObj.username,
+            role: userObj.role,
+          },
+          hasActiveShift: true,
+          status,
+          attendance: record,
+          currentWorkMinutes,
+          currentWorkHours: Number((currentWorkMinutes / 60).toFixed(2)),
+          totalBreakMinutes,
+          totalBreakHours: Number((totalBreakMinutes / 60).toFixed(2)),
+          netWorkMinutes: Math.max(0, currentWorkMinutes - totalBreakMinutes),
+          netWorkHours: Number((Math.max(0, currentWorkMinutes - totalBreakMinutes) / 60).toFixed(2)),
+          activeBreak,
+        });
+      } else if (record && record.clockOut) {
+        // Turno completado hoy
+        totalCompleted++;
+        userStatuses.push({
+          user: {
+            _id: userObj._id || userObj.id,
+            name: userObj.name,
+            email: userObj.email,
+            username: userObj.username,
+            role: userObj.role,
+          },
+          hasActiveShift: false,
+          status: 'completed',
+          attendance: record,
+          totalWorkMinutes: record.totalWorkMinutes || 0,
+          totalWorkHours: Number(((record.totalWorkMinutes || 0) / 60).toFixed(2)),
+          totalBreakMinutes: record.totalBreakMinutes || 0,
+          totalBreakHours: Number(((record.totalBreakMinutes || 0) / 60).toFixed(2)),
+          netWorkMinutes: record.netWorkMinutes || 0,
+          netWorkHours: Number(((record.netWorkMinutes || 0) / 60).toFixed(2)),
+          activeBreak: null,
+        });
+      } else {
+        // Sin registro hoy (fuera de turno)
+        totalOffShift++;
+        userStatuses.push({
+          user: {
+            _id: userObj._id || userObj.id,
+            name: userObj.name,
+            email: userObj.email,
+            username: userObj.username,
+            role: userObj.role,
+          },
+          hasActiveShift: false,
+          status: 'off_shift',
+          attendance: null,
+          currentWorkMinutes: 0,
+          currentWorkHours: 0,
+          totalBreakMinutes: 0,
+          totalBreakHours: 0,
+          netWorkMinutes: 0,
+          netWorkHours: 0,
+          activeBreak: null,
+        });
+      }
+    }
+
+    return {
+      branchId: String(branchId),
+      date: todayStr,
+      totalAssignedUsers: allUsersMap.size,
+      summary: {
+        working: totalWorking,
+        onBreak: totalOnBreak,
+        completed: totalCompleted,
+        offShift: totalOffShift,
+      },
+      users: userStatuses,
+    };
+  }
+
+  /**
    * Obtener los registros personales del usuario autenticado
    */
   async getMyRecords(userId: string, startDate?: string, endDate?: string): Promise<AttendanceDocument[]> {
@@ -305,12 +487,18 @@ export class AttendanceService {
       if (queryDto.endDate) query.date.$lte = queryDto.endDate;
     }
 
-    return this.attendanceModel
+    const records = await this.attendanceModel
       .find(query)
       .sort({ date: -1, clockIn: -1 })
-      .populate('user', 'name email username role')
+      .populate({
+        path: 'user',
+        match: { deletedAt: null },
+        select: 'name email username role',
+      })
       .populate('branch', 'name city')
       .exec();
+
+    return records.filter((r) => r.user !== null && !(r.user as any).deletedAt);
   }
 
   /**
@@ -350,14 +538,18 @@ export class AttendanceService {
 
     const records = await this.attendanceModel
       .find(query)
-      .populate('user', 'name email username role branch')
+      .populate({
+        path: 'user',
+        match: { deletedAt: null },
+        select: 'name email username role branch',
+      })
       .populate('branch', 'name city')
       .exec();
 
     const userSummaryMap = new Map<string, any>();
 
     for (const record of records) {
-      if (!record.user) continue;
+      if (!record.user || (record.user as any).deletedAt) continue;
       const userObj = record.user as any;
       const uId = String(userObj._id || userObj.id);
 

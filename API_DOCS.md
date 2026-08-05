@@ -2549,7 +2549,11 @@ Opción B (por Correo Electrónico):
 ---
 
 ### [GET] /attendance/today
-**Summary**: Obtener el estado de asistencia actual del usuario para hoy (si está trabajando, en receso o fuera de turno)
+**Summary**: Obtener el estado de asistencia actual del usuario o sucursal para hoy (si está trabajando, en receso o fuera de turno)
+
+**Query Parameters**:
+- `userId`: (Opcional) ID de un usuario específico.
+- `branchId`: (Opcional) ID de una sucursal para obtener la asistencia de todos sus usuarios.
 
 **Responses**:
 - `200`: Estado de asistencia de hoy.
@@ -2571,6 +2575,60 @@ Opción B (por Correo Electrónico):
         "durationMinutes": 30,
         "note": "Hora de comida"
       }
+    }
+  }
+  ```
+
+---
+
+### [GET] /attendance/branch/today
+**Summary**: Obtener el estado de asistencia de todos los usuarios asignados a una sucursal para hoy
+
+**Headers**:
+- `x-branch-id`: ID de la sucursal activa (Opcional si se envía query param)
+
+**Query Parameters**:
+- `branchId`: (Opcional) ID de la sucursal a consultar (si no se envía header `x-branch-id`).
+
+**Responses**:
+- `200`: Estado de asistencia de la sucursal para el día de hoy.
+  ```json
+  {
+    "success": true,
+    "data": {
+      "branchId": "60d5ec49c6d48227b409748c",
+      "date": "2026-08-04",
+      "totalAssignedUsers": 3,
+      "summary": {
+        "working": 1,
+        "onBreak": 1,
+        "completed": 0,
+        "offShift": 1
+      },
+      "users": [
+        {
+          "user": {
+            "_id": "60d5ec49c6d48227b409748b",
+            "name": "Alexis Manuel",
+            "email": "alexis@ferventa.com",
+            "username": "alexis",
+            "role": {
+              "_id": "60d5ec49c6d48227b4097480",
+              "name": "admin"
+            }
+          },
+          "hasActiveShift": true,
+          "status": "working",
+          "attendance": { ... },
+          "currentWorkMinutes": 120,
+          "currentWorkHours": 2,
+          "totalBreakMinutes": 0,
+          "totalBreakHours": 0,
+          "netWorkMinutes": 120,
+          "netWorkHours": 2,
+          "activeBreak": null
+        }
+      ]
     }
   }
   ```

@@ -248,7 +248,7 @@ export class SalesService {
     return (await sale.save()).populate(['customer', 'seller', 'cancelledBy']);
   }
 
-  async findAll(branchId: string, filters: { customerId?: string; isCancelled?: boolean; hasService?: boolean }): Promise<SaleDocument[]> {
+  async findAll(branchId: string, filters: { customerId?: string; isCancelled?: boolean; hasService?: boolean; startDate?: string; endDate?: string; utcOffsetMinutes?: number }): Promise<SaleDocument[]> {
     const query: any = { branch: branchId };
     if (filters.customerId) {
       query.customer = filters.customerId;
@@ -258,6 +258,23 @@ export class SalesService {
     }
     if (filters.hasService) {
       query['items.type'] = 'service';
+    }
+    if (filters.startDate || filters.endDate) {
+      // utcOffsetMinutes = Date.getTimezoneOffset() on the client.
+      // For UTC-5 this is 300. We add it to convert local midnight → UTC.
+      // e.g. local 00:00 UTC-5 = 00:00 + 5h = 05:00 UTC
+      const offsetMs = (filters.utcOffsetMinutes ?? 0) * 60 * 1000;
+      query.createdAt = {};
+      if (filters.startDate) {
+        const startUtcMidnight = new Date(`${filters.startDate}T00:00:00.000Z`);
+        query.createdAt.$gte = new Date(startUtcMidnight.getTime() + offsetMs);
+      }
+      if (filters.endDate) {
+        // End of local day = start of next local day in UTC
+        const endUtcMidnight = new Date(`${filters.endDate}T00:00:00.000Z`);
+        endUtcMidnight.setUTCDate(endUtcMidnight.getUTCDate() + 1);
+        query.createdAt.$lt = new Date(endUtcMidnight.getTime() + offsetMs);
+      }
     }
     return this.saleModel
       .find(query)

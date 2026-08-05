@@ -107,13 +107,34 @@ export class AttendanceController {
   }
 
   @Get('today')
-  @ApiOperation({ summary: 'Obtener el estado de asistencia actual del usuario para hoy' })
+  @ApiOperation({ summary: 'Obtener el estado de asistencia actual del usuario o sucursal para hoy' })
+  @ApiQuery({ name: 'userId', required: false, description: 'Filtrar por usuario específico' })
+  @ApiQuery({ name: 'branchId', required: false, description: 'Filtrar por sucursal para obtener el estado de todos sus empleados' })
   async getTodayStatus(
     @CurrentUser('_id') userId: string,
     @Query('userId') queryUserId?: string,
+    @Query('branchId') queryBranchId?: string,
   ) {
+    if (queryBranchId) {
+      const data = await this.attendanceService.getBranchTodayStatus(queryBranchId);
+      return { data };
+    }
     const targetUserId = queryUserId || userId;
     const data = await this.attendanceService.getTodayStatus(targetUserId);
+    return { data };
+  }
+
+  @Get('branch/today')
+  @UseGuards(BranchGuard)
+  @ApiOperation({ summary: 'Obtener el estado de asistencia de todos los usuarios asignados a una sucursal para hoy' })
+  @ApiHeader({ name: 'x-branch-id', required: true, description: 'ID de la sucursal activa' })
+  @ApiQuery({ name: 'branchId', required: false, description: 'ID de la sucursal (opcional si se envía el header x-branch-id)' })
+  async getBranchTodayStatus(
+    @BranchId() headerBranchId: string,
+    @Query('branchId') queryBranchId?: string,
+  ) {
+    const targetBranchId = queryBranchId || headerBranchId;
+    const data = await this.attendanceService.getBranchTodayStatus(targetBranchId);
     return { data };
   }
 

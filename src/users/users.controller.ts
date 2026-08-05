@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   BadRequestException,
+  Header,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { UsersService } from './users.service';
@@ -69,6 +70,7 @@ export class UsersController {
 
   @Get('check-username')
   @Roles('admin')
+  @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
   @ApiOperation({ summary: 'Validar si un nombre de usuario ya existe o está disponible (por query param)' })
   @ApiQuery({ name: 'username', required: true, description: 'Nombre de usuario a validar' })
   checkUsernameQuery(@Query('username') username: string) {
@@ -85,6 +87,7 @@ export class UsersController {
 
   @Get('check-username/:username')
   @Roles('admin')
+  @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
   @ApiOperation({ summary: 'Validar si un nombre de usuario ya existe o está disponible (por param de ruta)' })
   checkUsernameParam(@Param('username') username: string) {
     return this.usersService.checkUsername(username);

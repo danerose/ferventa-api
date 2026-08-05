@@ -61,15 +61,22 @@ export class SalesController {
   @ApiQuery({ name: 'customerId', required: false, description: 'Filtrar por ID del cliente' })
   @ApiQuery({ name: 'isCancelled', required: false, type: Boolean, description: 'Filtrar por estado de cancelación' })
   @ApiQuery({ name: 'hasService', required: false, type: Boolean, description: 'Filtrar por si incluye servicios' })
+  @ApiQuery({ name: 'startDate', required: false, description: 'Fecha inicio (YYYY-MM-DD) en zona local del cliente' })
+  @ApiQuery({ name: 'endDate', required: false, description: 'Fecha fin (YYYY-MM-DD) en zona local del cliente' })
+  @ApiQuery({ name: 'utcOffsetMinutes', required: false, type: Number, description: 'Offset UTC del cliente en minutos (ej: 300 para UTC-5). Equivale a Date.getTimezoneOffset()' })
   findAll(
     @BranchId() branchId: string,
     @Query('customerId') customerId?: string,
     @Query('isCancelled') isCancelled?: string,
     @Query('hasService') hasService?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('utcOffsetMinutes') utcOffsetMinutes?: string,
   ) {
     const isCancelledBool = isCancelled === undefined ? undefined : isCancelled === 'true';
     const hasServiceBool = hasService === undefined ? undefined : hasService === 'true';
-    return this.salesService.findAll(branchId, { customerId, isCancelled: isCancelledBool, hasService: hasServiceBool });
+    const offsetMinutes = utcOffsetMinutes !== undefined ? parseInt(utcOffsetMinutes, 10) : 0;
+    return this.salesService.findAll(branchId, { customerId, isCancelled: isCancelledBool, hasService: hasServiceBool, startDate, endDate, utcOffsetMinutes: offsetMinutes });
   }
 
   @Get(':id')

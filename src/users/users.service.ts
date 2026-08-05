@@ -131,7 +131,8 @@ export class UsersService implements OnModuleInit {
     let candidate = base;
     let counter = 1;
 
-    while (await this.userModel.exists({ username: candidate, deletedAt: null })) {
+    // Check across entire collection (including soft-deleted) to prevent Mongo unique index collisions
+    while (await this.userModel.exists({ username: candidate })) {
       candidate = `${base}${counter}`;
       counter++;
     }
@@ -145,7 +146,8 @@ export class UsersService implements OnModuleInit {
       throw new BadRequestException(i18n ? i18n.t('common.errors.badRequest') : 'Se requiere un nombre de usuario');
     }
     const cleanUsername = username.toLowerCase().trim();
-    const existing = await this.userModel.exists({ username: cleanUsername, deletedAt: null });
+    // Check entire collection matching Mongo unique index constraint
+    const existing = await this.userModel.exists({ username: cleanUsername });
     return {
       exists: !!existing,
       available: !existing,
@@ -177,7 +179,7 @@ export class UsersService implements OnModuleInit {
     
     if (username) {
       username = username.toLowerCase().trim();
-      const existingUsername = await this.findByUsername(username);
+      const existingUsername = await this.userModel.exists({ username });
       if (existingUsername) {
         const i18n = I18nContext.current();
         const message = i18n ? i18n.t('common.errors.usernameRegistered') : 'El nombre de usuario ya está registrado';
@@ -190,6 +192,8 @@ export class UsersService implements OnModuleInit {
     // Auto-generate email if not provided
     if (!email) {
       email = `${username}@ferventa.com`;
+    } else {
+      email = email.toLowerCase().trim();
     }
 
     // Auto-generate password if not provided
@@ -198,8 +202,8 @@ export class UsersService implements OnModuleInit {
       rawPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-2).toUpperCase() + '!';
     }
 
-    const existing = await this.findByEmail(email);
-    if (existing) {
+    const existingEmail = await this.userModel.exists({ email });
+    if (existingEmail) {
       const i18n = I18nContext.current();
       const message = i18n ? i18n.t('common.errors.emailRegistered') : 'El correo ya está registrado';
       throw new BadRequestException(message);
@@ -222,7 +226,20 @@ export class UsersService implements OnModuleInit {
       phone,
     });
 
-    const saved = await createdUser.save();
+    let saved: UserDocument;
+    try {
+      saved = await createdUser.save();
+    } catch (err: any) {
+      if (err?.code === 11000) {
+        const i18n = I18nContext.current();
+        const isUsername = err.keyPattern?.username || JSON.stringify(err.keyValue).includes('username');
+        const message = isUsername
+          ? (i18n ? i18n.t('common.errors.usernameRegistered') : 'El nombre de usuario ya está registrado')
+          : (i18n ? i18n.t('common.errors.emailRegistered') : 'El correo ya está registrado');
+        throw new BadRequestException(message);
+      }
+      throw err;
+    }
     const populated = await saved.populate('role');
 
     const formattedText = `¡Hola ${populated.name}! Tu cuenta en Ferventa ha sido creada exitosamente.
@@ -306,6 +323,12 @@ Puedes iniciar sesión en el siguiente enlace:
     const user = await this.findById(id);
     user.deletedAt = new Date();
     user.isActive = false;
+    if (user.username) {
+      user.username = `${user.username}_deleted_${Date.now()}`;
+    }
+    if (user.email) {
+      user.email = `${user.email}_deleted_${Date.now()}`;
+    }
     await user.save();
   }
 
