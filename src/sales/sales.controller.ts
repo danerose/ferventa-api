@@ -73,7 +73,13 @@ export class SalesController {
     @Query('endDate') endDate?: string,
     @Query('utcOffsetMinutes') utcOffsetMinutes?: string,
   ) {
-    const isCancelledBool = isCancelled === undefined ? undefined : isCancelled === 'true';
+    let isCancelledBool: boolean | undefined = undefined;
+    if (isCancelled === 'true') {
+      isCancelledBool = true;
+    } else if (isCancelled === 'only_active') {
+      isCancelledBool = false;
+    }
+
     const hasServiceBool = hasService === undefined ? undefined : hasService === 'true';
     const offsetMinutes = utcOffsetMinutes !== undefined ? parseInt(utcOffsetMinutes, 10) : 0;
     return this.salesService.findAll(branchId, { customerId, isCancelled: isCancelledBool, hasService: hasServiceBool, startDate, endDate, utcOffsetMinutes: offsetMinutes });

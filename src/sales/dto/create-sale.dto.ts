@@ -29,6 +29,11 @@ export class SaleItemDto {
   @IsOptional()
   serviceId?: string;
 
+  @ApiPropertyOptional({ example: 'Mantenimiento Express Temporal', description: 'Nombre del servicio temporal (Requerido si no se envía serviceId)' })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  name?: string;
+
   @ApiProperty({ example: 2, description: 'Cantidad vendida' })
   @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })
   @Min(1, { message: i18nValidationMessage('validation.min') })

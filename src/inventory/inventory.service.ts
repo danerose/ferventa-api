@@ -12,6 +12,7 @@ import { CreateProviderDto } from './dto/create-provider.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateStockMovementDto } from './dto/create-stock-movement.dto';
+import { PaginatedResult } from '../common/dto/pagination.dto';
 import { I18nContext } from 'nestjs-i18n';
 
 @Injectable()
@@ -34,8 +35,21 @@ export class InventoryService {
     return this.brandModel.create({ name: createBrandDto.name.trim(), branch: branchId });
   }
 
-  async findAllBrands(branchId: string): Promise<Brand[]> {
-    return this.brandModel.find({ branch: branchId }).sort({ name: 1 }).exec();
+  async findAllBrands(branchId: string, search?: string, page = 1, limit = 10): Promise<PaginatedResult<Brand>> {
+    const query: any = { branch: branchId };
+    if (search) {
+      query.name = { $regex: search, $options: 'i' };
+    }
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      this.brandModel.find(query).sort({ name: 1 }).skip(skip).limit(limit).exec(),
+      this.brandModel.countDocuments(query),
+    ]);
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) || 1 };
+  }
+
+  async searchBrandsByName(branchId: string, search: string, page = 1, limit = 10): Promise<PaginatedResult<Brand>> {
+    return this.findAllBrands(branchId, search, page, limit);
   }
 
   async deleteBrand(id: string, branchId: string): Promise<void> {
@@ -62,8 +76,21 @@ export class InventoryService {
     return this.categoryModel.create({ name: createCategoryDto.name.trim(), branch: branchId });
   }
 
-  async findAllCategories(branchId: string): Promise<Category[]> {
-    return this.categoryModel.find({ branch: branchId }).sort({ name: 1 }).exec();
+  async findAllCategories(branchId: string, search?: string, page = 1, limit = 10): Promise<PaginatedResult<Category>> {
+    const query: any = { branch: branchId };
+    if (search) {
+      query.name = { $regex: search, $options: 'i' };
+    }
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      this.categoryModel.find(query).sort({ name: 1 }).skip(skip).limit(limit).exec(),
+      this.categoryModel.countDocuments(query),
+    ]);
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) || 1 };
+  }
+
+  async searchCategoriesByName(branchId: string, search: string, page = 1, limit = 10): Promise<PaginatedResult<Category>> {
+    return this.findAllCategories(branchId, search, page, limit);
   }
 
   async deleteCategory(id: string, branchId: string): Promise<void> {
@@ -84,8 +111,24 @@ export class InventoryService {
     return this.providerModel.create({ ...createProviderDto, branch: branchId });
   }
 
-  async findAllProviders(branchId: string): Promise<Provider[]> {
-    return this.providerModel.find({ branch: branchId }).sort({ name: 1 }).exec();
+  async findAllProviders(branchId: string, search?: string, page = 1, limit = 10): Promise<PaginatedResult<Provider>> {
+    const query: any = { branch: branchId };
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { providerCode: { $regex: search, $options: 'i' } },
+      ];
+    }
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      this.providerModel.find(query).sort({ name: 1 }).skip(skip).limit(limit).exec(),
+      this.providerModel.countDocuments(query),
+    ]);
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) || 1 };
+  }
+
+  async searchProviders(branchId: string, search: string, page = 1, limit = 10): Promise<PaginatedResult<Provider>> {
+    return this.findAllProviders(branchId, search, page, limit);
   }
 
   async updateProvider(id: string, branchId: string, createProviderDto: CreateProviderDto): Promise<Provider> {
@@ -142,7 +185,14 @@ export class InventoryService {
     return (await product.save()).populate(['brand', 'category']);
   }
 
-  async findAllProducts(branchId: string, filters: { search?: string; categoryId?: string; brandId?: string }): Promise<ProductDocument[]> {
+  async findAllProducts(
+    branchId: string,
+    filters: { search?: string; categoryId?: string; brandId?: string; page?: number; limit?: number },
+  ): Promise<PaginatedResult<ProductDocument>> {
+    const page = filters.page || 1;
+    const limit = filters.limit || 10;
+    const skip = (page - 1) * limit;
+
     const query: any = { isActive: true, branch: branchId };
 
     if (filters.categoryId) {
@@ -159,11 +209,30 @@ export class InventoryService {
       ];
     }
 
-    return this.productModel
-      .find(query)
-      .populate(['brand', 'category'])
-      .sort({ name: 1 })
-      .exec();
+    const [items, total] = await Promise.all([
+      this.productModel.find(query).populate(['brand', 'category']).sort({ name: 1 }).skip(skip).limit(limit).exec(),
+      this.productModel.countDocuments(query),
+    ]);
+
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) || 1 };
+  }
+
+  async searchProducts(branchId: string, search: string, page = 1, limit = 10): Promise<PaginatedResult<ProductDocument>> {
+    const query = {
+      isActive: true,
+      branch: branchId,
+      $or: [
+        { name: { $regex: search, $options: 'i' } },
+        { sku: { $regex: search, $options: 'i' } },
+        { compatibility: { $regex: search, $options: 'i' } },
+      ],
+    };
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      this.productModel.find(query).populate(['brand', 'category']).sort({ name: 1 }).skip(skip).limit(limit).exec(),
+      this.productModel.countDocuments(query),
+    ]);
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) || 1 };
   }
 
   async findProductById(id: string, branchId: string): Promise<ProductDocument> {

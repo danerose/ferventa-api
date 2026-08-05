@@ -5,6 +5,7 @@ import { PredefinedService, PredefinedServiceDocument } from './schemas/service.
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { InventoryService } from '../inventory/inventory.service';
+import { PaginatedResult } from '../common/dto/pagination.dto';
 import { I18nContext } from 'nestjs-i18n';
 
 @Injectable()
@@ -25,7 +26,11 @@ export class ServicesService {
     return (await service.save()).populate('supplies.product');
   }
 
-  async findAll(filters: { isActive?: boolean; search?: string }): Promise<PredefinedServiceDocument[]> {
+  async findAll(filters: { isActive?: boolean; search?: string; page?: number; limit?: number }): Promise<PaginatedResult<PredefinedServiceDocument>> {
+    const page = filters.page || 1;
+    const limit = filters.limit || 10;
+    const skip = (page - 1) * limit;
+
     const query: any = {};
     
     if (filters.isActive !== undefined) {
@@ -38,11 +43,32 @@ export class ServicesService {
       ];
     }
 
-    return this.serviceModel
-      .find(query)
-      .populate('supplies.product')
-      .sort({ createdAt: -1 })
-      .exec();
+    const [items, total] = await Promise.all([
+      this.serviceModel
+        .find(query)
+        .populate('supplies.product')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.serviceModel.countDocuments(query),
+    ]);
+
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) || 1 };
+  }
+
+  async searchByName(search: string, isActive?: boolean, page = 1, limit = 10): Promise<PaginatedResult<PredefinedServiceDocument>> {
+    const query: any = { name: { $regex: search, $options: 'i' } };
+    if (isActive !== undefined) {
+      query.isActive = isActive;
+    }
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      this.serviceModel.find(query).populate('supplies.product').sort({ name: 1 }).skip(skip).limit(limit).exec(),
+      this.serviceModel.countDocuments(query),
+    ]);
+
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) || 1 };
   }
 
   async findById(id: string): Promise<PredefinedServiceDocument> {

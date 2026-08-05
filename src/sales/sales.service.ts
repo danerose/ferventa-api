@@ -115,10 +115,18 @@ export class SalesService {
             throw new BadRequestException(message);
           }
         } else if (item.type === 'service') {
-          if (!item.serviceId) throw new BadRequestException('Falta el serviceId en un ítem de tipo servicio');
-          const service = await this.servicesService.findById(item.serviceId);
-          if (!service.isActive) {
-            throw new BadRequestException(`El servicio ${service.name} no está activo.`);
+          if (item.serviceId) {
+            const service = await this.servicesService.findById(item.serviceId);
+            if (!service.isActive) {
+              throw new BadRequestException(`El servicio ${service.name} no está activo.`);
+            }
+          } else {
+            if (!item.name || !item.name.trim()) {
+              throw new BadRequestException('Falta el campo name para el servicio temporal');
+            }
+            if (item.unitPrice === undefined || item.unitPrice < 0) {
+              throw new BadRequestException('Falta el precio (unitPrice) para el servicio temporal');
+            }
           }
         } else {
           throw new BadRequestException(`Tipo de ítem desconocido: ${item.type}`);
@@ -160,16 +168,24 @@ export class SalesService {
           });
 
         } else if (item.type === 'service') {
-          const service = await this.servicesService.findById(item.serviceId!);
-          const priceSnapshot = item.unitPrice !== undefined ? item.unitPrice : service.basePrice;
+          let serviceName = item.name;
+          let priceSnapshot = item.unitPrice !== undefined ? item.unitPrice : 0;
+          let serviceId: any = undefined;
+
+          if (item.serviceId) {
+            const service = await this.servicesService.findById(item.serviceId);
+            serviceName = serviceName || service.name;
+            priceSnapshot = item.unitPrice !== undefined ? item.unitPrice : service.basePrice;
+            serviceId = service._id;
+          }
 
           subtotal += priceSnapshot * item.quantity;
           itemsDiscount += itemDisc * item.quantity;
 
           saleItems.push({
             type: 'service',
-            serviceId: service._id,
-            name: service.name,
+            serviceId,
+            name: serviceName!,
             quantity: item.quantity,
             priceSnapshot,
             discount: itemDisc,
@@ -213,7 +229,19 @@ export class SalesService {
       branch: branchId as any,
     });
 
-    return (await sale.save()).populate(['customer', 'seller', 'quoteRef']);
+    return (await sale.save()).populate([
+      'customer',
+      'seller',
+      'items.product',
+      {
+        path: 'items.serviceId',
+        populate: {
+          path: 'supplies.product',
+          model: 'Product',
+        },
+      },
+      'quoteRef',
+    ]);
   }
 
   async cancel(id: string, branchId: string, cancelSaleDto: CancelSaleDto, userId: string): Promise<SaleDocument> {
@@ -224,12 +252,13 @@ export class SalesService {
       throw new BadRequestException(i18n ? i18n.t('common.errors.alreadyCancelled') : 'Esta venta ya se encuentra cancelada');
     }
 
-    // Restore stock in inventory for direct products
+    // Restore stock in inventory for direct products and service supplies
     for (const item of sale.items) {
       if (item.type === 'product' && item.product) {
+        const prodId = (item.product as any)._id ? (item.product as any)._id.toString() : (item.product as any).toString();
         await this.inventoryService.registerMovement(
           {
-            productId: (item.product as any)._id.toString(),
+            productId: prodId,
             type: 'in',
             quantity: item.quantity,
             reason: `Cancelación de Venta Folio #${sale.folio}`,
@@ -237,6 +266,22 @@ export class SalesService {
           userId,
           branchId,
         );
+      } else if (item.type === 'service' && item.serviceId && (item.serviceId as any).supplies) {
+        for (const supply of (item.serviceId as any).supplies) {
+          if (supply.product) {
+            const supplyProdId = (supply.product as any)._id ? (supply.product as any)._id.toString() : (supply.product as any).toString();
+            await this.inventoryService.registerMovement(
+              {
+                productId: supplyProdId,
+                type: 'in',
+                quantity: supply.quantity * item.quantity,
+                reason: `Cancelación de Venta Folio #${sale.folio} (Devolución insumo servicio)`,
+              },
+              userId,
+              branchId,
+            );
+          }
+        }
       }
     }
 
@@ -260,9 +305,6 @@ export class SalesService {
       query['items.type'] = 'service';
     }
     if (filters.startDate || filters.endDate) {
-      // utcOffsetMinutes = Date.getTimezoneOffset() on the client.
-      // For UTC-5 this is 300. We add it to convert local midnight → UTC.
-      // e.g. local 00:00 UTC-5 = 00:00 + 5h = 05:00 UTC
       const offsetMs = (filters.utcOffsetMinutes ?? 0) * 60 * 1000;
       query.createdAt = {};
       if (filters.startDate) {
@@ -270,7 +312,6 @@ export class SalesService {
         query.createdAt.$gte = new Date(startUtcMidnight.getTime() + offsetMs);
       }
       if (filters.endDate) {
-        // End of local day = start of next local day in UTC
         const endUtcMidnight = new Date(`${filters.endDate}T00:00:00.000Z`);
         endUtcMidnight.setUTCDate(endUtcMidnight.getUTCDate() + 1);
         query.createdAt.$lt = new Date(endUtcMidnight.getTime() + offsetMs);
@@ -278,7 +319,18 @@ export class SalesService {
     }
     return this.saleModel
       .find(query)
-      .populate(['customer', 'seller'])
+      .populate([
+        'customer',
+        'seller',
+        'items.product',
+        {
+          path: 'items.serviceId',
+          populate: {
+            path: 'supplies.product',
+            model: 'Product',
+          },
+        },
+      ])
       .sort({ createdAt: -1 })
       .exec();
   }
@@ -292,7 +344,19 @@ export class SalesService {
     if (branchId) query.branch = branchId;
     const sale = await this.saleModel
       .findOne(query)
-      .populate(['customer', 'seller', 'items.product', 'items.serviceId', 'quoteRef'])
+      .populate([
+        'customer',
+        'seller',
+        'items.product',
+        {
+          path: 'items.serviceId',
+          populate: {
+            path: 'supplies.product',
+            model: 'Product',
+          },
+        },
+        'quoteRef',
+      ])
       .exec();
     if (!sale) {
       const i18n = I18nContext.current();
@@ -304,7 +368,19 @@ export class SalesService {
   async findByFolio(folio: string, branchId: string): Promise<SaleDocument> {
     const sale = await this.saleModel
       .findOne({ folio: folio.toUpperCase().trim(), branch: branchId })
-      .populate(['customer', 'seller', 'items.product', 'items.serviceId', 'quoteRef'])
+      .populate([
+        'customer',
+        'seller',
+        'items.product',
+        {
+          path: 'items.serviceId',
+          populate: {
+            path: 'supplies.product',
+            model: 'Product',
+          },
+        },
+        'quoteRef',
+      ])
       .exec();
     if (!sale) {
       const i18n = I18nContext.current();

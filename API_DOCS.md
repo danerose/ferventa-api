@@ -500,14 +500,31 @@ Opción B (por Correo Electrónico):
 ---
 
 ### [GET] /inventory/brands
-**Summary**: Listar todas las marcas
+**Summary**: Listar todas las marcas (Paginado)
+
+**Parameters**:
+- `search` (query): Buscar por nombre de la marca
+- `q` (query): Alias de `search`
+- `page` (query): Número de página (default: 1)
+- `limit` (query): Elementos por página (default: 10)
 
 **Responses**:
 - `200`: 
   ```json
   {
     "success": true,
-    "data": null,
+    "data": {
+      "items": [
+        {
+          "_id": "60d5ec49c6d48227b409748b",
+          "name": "Brembo"
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 1
+    },
     "message": "Success"
   }
   ```
@@ -555,14 +572,31 @@ Opción B (por Correo Electrónico):
 ---
 
 ### [GET] /inventory/categories
-**Summary**: Listar todas las categorías
+**Summary**: Listar todas las categorías (Paginado)
+
+**Parameters**:
+- `search` (query): Buscar por nombre de la categoría
+- `q` (query): Alias de `search`
+- `page` (query): Número de página (default: 1)
+- `limit` (query): Elementos por página (default: 10)
 
 **Responses**:
 - `200`: 
   ```json
   {
     "success": true,
-    "data": null,
+    "data": {
+      "items": [
+        {
+          "_id": "60d5ec49c6d48227b409748c",
+          "name": "Frenos"
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 1
+    },
     "message": "Success"
   }
   ```
@@ -611,14 +645,32 @@ Opción B (por Correo Electrónico):
 ---
 
 ### [GET] /inventory/providers
-**Summary**: Listar todos los proveedores
+**Summary**: Listar todos los proveedores (Paginado)
+
+**Parameters**:
+- `search` (query): Buscar por nombre o código de proveedor
+- `q` (query): Alias de `search`
+- `page` (query): Número de página (default: 1)
+- `limit` (query): Elementos por página (default: 10)
 
 **Responses**:
 - `200`: 
   ```json
   {
     "success": true,
-    "data": null,
+    "data": {
+      "items": [
+        {
+          "_id": "60d5ec49c6d48227b409748d",
+          "name": "AutoZone Proveedores",
+          "providerCode": "PROV-001"
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 1
+    },
     "message": "Success"
   }
   ```
@@ -707,19 +759,37 @@ Opción B (por Correo Electrónico):
 ---
 
 ### [GET] /inventory/products
-**Summary**: Listar autopartes con filtros opcionales
+**Summary**: Listar autopartes con filtros opcionales (Paginado)
 
 **Parameters**:
-- `search` (query): Buscar por nombre, SKU o compatibilidad 
+- `search` (query): Buscar por término único que coincide en SKU, Nombre o Compatibilidad
+- `q` (query): Alias de `search`
 - `categoryId` (query): Filtrar por categoría ID 
 - `brandId` (query): Filtrar por marca ID 
+- `page` (query): Número de página (default: 1)
+- `limit` (query): Elementos por página (default: 10)
 
 **Responses**:
 - `200`: 
   ```json
   {
     "success": true,
-    "data": null,
+    "data": {
+      "items": [
+        {
+          "_id": "60d5ec49c6d48227b409748e",
+          "sku": "BAL-001",
+          "name": "Balatas Delanteras",
+          "costPrice": 450,
+          "sellingPrice": 750,
+          "stock": 25
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 1
+    },
     "message": "Success"
   }
   ```
@@ -753,6 +823,7 @@ Opción B (por Correo Electrónico):
 **Request Body**:
 ```json
 {
+  "sku": "string",
   "name": "string",
   "description": "string",
   "brandId": "string",
@@ -1892,32 +1963,41 @@ Opción B (por Correo Electrónico):
 ---
 
 ### [GET] /services
-**Summary**: Listar todos los servicios predefinidos
+**Summary**: Listar todos los servicios predefinidos (Paginado)
 
 **Parameters**:
 - `isActive` (query): Filtrar solo activos (`true`/`false`). Por defecto devuelve todos.
 - `search` (query): Buscar por nombre del servicio.
+- `q` (query): Alias de `search`.
+- `page` (query): Número de página (default: 1)
+- `limit` (query): Elementos por página (default: 10)
 
 **Responses**:
-- `200`: Lista de servicios.
+- `200`: Lista de servicios paginados.
   ```json
   {
     "success": true,
-    "data": [
-      {
-        "_id": "60d5ec49c6d48227b409749a",
-        "name": "1er Mantenimiento",
-        "description": "Mantenimiento preventivo básico.",
-        "basePrice": 450.00,
-        "isActive": true,
-        "supplies": [
-          {
-            "product": { "_id": "...", "name": "Aceite Motor 5W-30", "sku": "ACE-001", "sellingPrice": 120 },
-            "quantity": 4
-          }
-        ]
-      }
-    ],
+    "data": {
+      "items": [
+        {
+          "_id": "60d5ec49c6d48227b409749a",
+          "name": "1er Mantenimiento",
+          "description": "Mantenimiento preventivo básico.",
+          "basePrice": 450.00,
+          "isActive": true,
+          "supplies": [
+            {
+              "product": { "_id": "...", "name": "Aceite Motor 5W-30", "sku": "ACE-001", "sellingPrice": 120 },
+              "quantity": 4
+            }
+          ]
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 1
+    },
     "message": "Success"
   }
   ```
@@ -2026,19 +2106,19 @@ Opción B (por Correo Electrónico):
 | `items` | array | ✅ | Lista de ítems del carrito |
 | `items[].type` | string | ✅ | `"product"` o `"service"` |
 | `items[].productId` | string | ✅ si `type=product` | ID del producto del inventario |
-| `items[].serviceId` | string | ✅ si `type=service` | ID del servicio predefinido |
+| `items[].serviceId` | string | ❌ | ID del servicio predefinido (opcional si es servicio temporal) |
+| `items[].name` | string | ❌ | Nombre del ítem/servicio. **Requerido** si `type=service` y no se incluye `serviceId`. |
 | `items[].quantity` | number | ✅ | Cantidad |
-| `items[].unitPrice` | number | ❌ | Precio unitario **editado manualmente** en el carrito. Si se omite, se usa el precio de catálogo. |
+| `items[].unitPrice` | number | ❌ | Precio unitario. **Requerido** si es un servicio temporal sin `serviceId`. Si es de catálogo y se omite, usa el precio predefinido. |
 | `items[].discount` | number | ❌ | Descuento unitario |
 | `globalDiscount` | number | ❌ | Descuento global sobre el total |
 | `paymentMethod` | string | ✅ | `cash` \| `card` \| `transfer` |
 | `paymentReference` | string | ❌ | Referencia de pago (ej. Mercado Pago ID) |
 
-> **Comportamiento de los servicios**:
-> - El backend **NO** expande los servicios en sus insumos automáticamente. 
-> - El servicio funciona únicamente como cobro de mano de obra.
-> - Si se consumen insumos, el Frontend debe enviarlos como ítems adicionales de tipo `"product"` dentro del arreglo `items`.
-> - El nombre del servicio y su precio (`unitPrice` o `basePrice`) se guardan como línea separada en la venta.
+> **Comportamiento de los servicios (Predefinidos y Temporales)**:
+> - **Servicios predefinidos (con `serviceId`)**: Utilizan la plantilla del catálogo para obtener el nombre y precio base (si no se envía `unitPrice` personalizado).
+> - **Servicios temporales (sin `serviceId`)**: Permiten agregar servicios al vuelo desde el POS sin registrarlos en el catálogo. Se debe enviar `type: "service"`, omitir `serviceId`, y enviar `name` (ej. `"Mantenimiento Express"`) y `unitPrice` (ej. `350.00`).
+> - **Insumos consumidos**: Si un servicio (predefinido o temporal) consume productos del inventario, el Frontend debe enviarlos como ítems adicionales de tipo `"product"` (`productId`, `quantity`, `unitPrice`) dentro del arreglo `items`. De esta forma, el stock se valida y se descuenta del inventario al cobrar la venta.
 > 
 > ⚠️ **ATENCIÓN FRONTEND**: Cuando envíen los insumos al carrito, **asegúrense de extraer y enviar el campo `productId`** en el objeto. Un error muy común es enviar `{ "type": "product", "quantity": 1 }` omitiendo el `productId` porque el objeto original del insumo venía anidado y su ID estaba en `_id`. **Si falta el `productId` en ítems de tipo producto, el API rechazará la venta con error 400**.
 
@@ -2160,7 +2240,32 @@ Opción B (por Correo Electrónico):
   ```json
   {
     "success": true,
-    "data": null,
+    "data": {
+      "_id": "6a73a8deb0611418866b8c78",
+      "folio": "SALE-20260805-4821",
+      "items": [
+        {
+          "type": "service",
+          "name": "1er Mantenimiento",
+          "priceSnapshot": 450,
+          "serviceId": {
+            "_id": "60d5ec49c6d48227b409749a",
+            "name": "1er Mantenimiento",
+            "supplies": [
+              {
+                "product": {
+                  "_id": "6a5faddc5787d0109bb0b00e",
+                  "sku": "ACE-001",
+                  "name": "Aceite Motor 5W-30",
+                  "sellingPrice": 120
+                },
+                "quantity": 8
+              }
+            ]
+          }
+        }
+      ]
+    },
     "message": "Success"
   }
   ```

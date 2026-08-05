@@ -17,6 +17,7 @@ import { CreateProviderDto } from './dto/create-provider.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateStockMovementDto } from './dto/create-stock-movement.dto';
+import { PaginationQueryDto } from '../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -41,9 +42,34 @@ export class InventoryController {
   }
 
   @Get('brands')
-  @ApiOperation({ summary: 'Listar todas las marcas' })
-  findAllBrands(@BranchId() branchId: string) {
-    return this.inventoryService.findAllBrands(branchId);
+  @ApiOperation({ summary: 'Listar todas las marcas paginadas con filtro opcional de búsqueda' })
+  @ApiQuery({ name: 'search', required: false, description: 'Búsqueda por nombre' })
+  @ApiQuery({ name: 'q', required: false, description: 'Alias para término de búsqueda' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  findAllBrands(
+    @BranchId() branchId: string,
+    @Query('search') search?: string,
+    @Query('q') q?: string,
+    @Query() query?: PaginationQueryDto,
+  ) {
+    const searchTerm = search || q;
+    return this.inventoryService.findAllBrands(branchId, searchTerm, query?.page, query?.limit);
+  }
+
+  @Get('brands/search')
+  @ApiOperation({ summary: 'Buscar marcas por nombre' })
+  @ApiQuery({ name: 'q', required: true, description: 'Término de búsqueda por nombre' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  searchBrandsByName(
+    @BranchId() branchId: string,
+    @Query('q') q: string,
+    @Query('search') search?: string,
+    @Query() query?: PaginationQueryDto,
+  ) {
+    const searchTerm = q || search || '';
+    return this.inventoryService.searchBrandsByName(branchId, searchTerm, query?.page, query?.limit);
   }
 
   @Delete('brands/:id')
@@ -62,9 +88,34 @@ export class InventoryController {
   }
 
   @Get('categories')
-  @ApiOperation({ summary: 'Listar todas las categorías' })
-  findAllCategories(@BranchId() branchId: string) {
-    return this.inventoryService.findAllCategories(branchId);
+  @ApiOperation({ summary: 'Listar todas las categorías paginadas con filtro opcional de búsqueda' })
+  @ApiQuery({ name: 'search', required: false, description: 'Búsqueda por nombre' })
+  @ApiQuery({ name: 'q', required: false, description: 'Alias para término de búsqueda' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  findAllCategories(
+    @BranchId() branchId: string,
+    @Query('search') search?: string,
+    @Query('q') q?: string,
+    @Query() query?: PaginationQueryDto,
+  ) {
+    const searchTerm = search || q;
+    return this.inventoryService.findAllCategories(branchId, searchTerm, query?.page, query?.limit);
+  }
+
+  @Get('categories/search')
+  @ApiOperation({ summary: 'Buscar categorías por nombre' })
+  @ApiQuery({ name: 'q', required: true, description: 'Término de búsqueda por nombre' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  searchCategoriesByName(
+    @BranchId() branchId: string,
+    @Query('q') q: string,
+    @Query('search') search?: string,
+    @Query() query?: PaginationQueryDto,
+  ) {
+    const searchTerm = q || search || '';
+    return this.inventoryService.searchCategoriesByName(branchId, searchTerm, query?.page, query?.limit);
   }
 
   @Delete('categories/:id')
@@ -83,9 +134,34 @@ export class InventoryController {
   }
 
   @Get('providers')
-  @ApiOperation({ summary: 'Listar todos los proveedores' })
-  findAllProviders(@BranchId() branchId: string) {
-    return this.inventoryService.findAllProviders(branchId);
+  @ApiOperation({ summary: 'Listar todos los proveedores paginados con filtro opcional de búsqueda' })
+  @ApiQuery({ name: 'search', required: false, description: 'Búsqueda por nombre o código' })
+  @ApiQuery({ name: 'q', required: false, description: 'Alias para término de búsqueda' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  findAllProviders(
+    @BranchId() branchId: string,
+    @Query('search') search?: string,
+    @Query('q') q?: string,
+    @Query() query?: PaginationQueryDto,
+  ) {
+    const searchTerm = search || q;
+    return this.inventoryService.findAllProviders(branchId, searchTerm, query?.page, query?.limit);
+  }
+
+  @Get('providers/search')
+  @ApiOperation({ summary: 'Buscar proveedores por nombre o código' })
+  @ApiQuery({ name: 'q', required: true, description: 'Término de búsqueda por nombre o código' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  searchProviders(
+    @BranchId() branchId: string,
+    @Query('q') q: string,
+    @Query('search') search?: string,
+    @Query() query?: PaginationQueryDto,
+  ) {
+    const searchTerm = q || search || '';
+    return this.inventoryService.searchProviders(branchId, searchTerm, query?.page, query?.limit);
   }
 
   @Patch('providers/:id')
@@ -111,29 +187,50 @@ export class InventoryController {
   }
 
   @Get('products')
-  @ApiOperation({ summary: 'Listar autopartes con filtros opcionales' })
+  @ApiOperation({ summary: 'Listar autopartes con filtros opcionales y paginación' })
   @ApiQuery({ name: 'search', required: false, description: 'Buscar por nombre, SKU o compatibilidad' })
+  @ApiQuery({ name: 'q', required: false, description: 'Alias para término de búsqueda' })
   @ApiQuery({ name: 'categoryId', required: false, description: 'Filtrar por categoría ID' })
   @ApiQuery({ name: 'brandId', required: false, description: 'Filtrar por marca ID' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
   findAllProducts(
     @BranchId() branchId: string,
     @Query('search') search?: string,
+    @Query('q') q?: string,
     @Query('categoryId') categoryId?: string,
     @Query('brandId') brandId?: string,
+    @Query() query?: PaginationQueryDto,
   ) {
-    return this.inventoryService.findAllProducts(branchId, { search, categoryId, brandId });
+    const searchTerm = search || q;
+    return this.inventoryService.findAllProducts(branchId, { search: searchTerm, categoryId, brandId, page: query?.page, limit: query?.limit });
+  }
+
+  @Get('products/search')
+  @ApiOperation({ summary: 'Buscar productos por SKU, nombre o compatibilidad' })
+  @ApiQuery({ name: 'q', required: true, description: 'Término de búsqueda' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  searchProducts(
+    @BranchId() branchId: string,
+    @Query('q') q: string,
+    @Query('search') search?: string,
+    @Query() query?: PaginationQueryDto,
+  ) {
+    const searchTerm = q || search || '';
+    return this.inventoryService.searchProducts(branchId, searchTerm, query?.page, query?.limit);
+  }
+
+  @Get('products/sku/:sku')
+  @ApiOperation({ summary: 'Obtener detalle de un producto por SKU exacto' })
+  findProductBySku(@BranchId() branchId: string, @Param('sku') sku: string) {
+    return this.inventoryService.findProductBySku(sku, branchId);
   }
 
   @Get('products/:id')
   @ApiOperation({ summary: 'Obtener detalle de un producto por ID' })
   findProductById(@BranchId() branchId: string, @Param('id') id: string) {
     return this.inventoryService.findProductById(id, branchId);
-  }
-
-  @Get('products/sku/:sku')
-  @ApiOperation({ summary: 'Obtener detalle de un producto por SKU' })
-  findProductBySku(@BranchId() branchId: string, @Param('sku') sku: string) {
-    return this.inventoryService.findProductBySku(sku, branchId);
   }
 
   @Patch('products/:id')
