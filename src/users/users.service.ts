@@ -302,6 +302,14 @@ Puedes iniciar sesión en el siguiente enlace:
       user.password = await bcrypt.hash(updateUserDto.password, 10);
     }
 
+    if (updateUserDto.phone !== undefined) {
+      user.phone = updateUserDto.phone;
+    }
+
+    if (updateUserDto.branches !== undefined) {
+      user.branches = updateUserDto.branches as any;
+    }
+
     if (updateUserDto.isActive !== undefined) {
       user.isActive = updateUserDto.isActive;
     }
@@ -316,7 +324,7 @@ Puedes iniciar sesión en el siguiente enlace:
     }
 
     const updated = await user.save();
-    return updated.populate('role');
+    return updated.populate(['role', 'branches']);
   }
 
   async softDelete(id: string): Promise<void> {
