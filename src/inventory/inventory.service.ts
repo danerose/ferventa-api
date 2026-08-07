@@ -253,7 +253,7 @@ export class InventoryService {
     return product;
   }
 
-  async updateProduct(id: string, branchId: string, updateProductDto: UpdateProductDto): Promise<ProductDocument> {
+  async updateProduct(id: string, branchId: string, updateProductDto: UpdateProductDto, userId?: string): Promise<ProductDocument> {
     const product = await this.findProductById(id, branchId);
 
     if (updateProductDto.sku) {
@@ -286,13 +286,29 @@ export class InventoryService {
       product.category = updateProductDto.categoryId as any;
     }
 
+    // Register stock movement if stock was modified
+    if (updateProductDto.stock !== undefined && updateProductDto.stock !== product.stock) {
+      const oldStock = product.stock;
+      const newStock = updateProductDto.stock;
+      const diff = newStock - oldStock;
+      product.stock = newStock;
+
+      await this.movementModel.create({
+        product: product._id as any,
+        branch: branchId,
+        type: diff > 0 ? 'in' : 'out',
+        quantity: Math.abs(diff),
+        reason: `Ajuste manual de stock por edición (Anterior: ${oldStock}, Nuevo: ${newStock})`,
+        performedBy: userId as any,
+        balanceAfter: newStock,
+      });
+    }
 
     // Explicitly update simple fields
     if (updateProductDto.name) product.name = updateProductDto.name;
     if (updateProductDto.description) product.description = updateProductDto.description;
     if (updateProductDto.costPrice !== undefined) product.costPrice = updateProductDto.costPrice;
     if (updateProductDto.sellingPrice !== undefined) product.sellingPrice = updateProductDto.sellingPrice;
-    if (updateProductDto.stock !== undefined) product.stock = updateProductDto.stock;
     if (updateProductDto.minStock !== undefined) product.minStock = updateProductDto.minStock;
     if (updateProductDto.unit) product.unit = updateProductDto.unit;
     if (updateProductDto.photos) product.photos = updateProductDto.photos;

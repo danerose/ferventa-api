@@ -245,11 +245,38 @@ export class SalesService {
   }
 
   async cancel(id: string, branchId: string, cancelSaleDto: CancelSaleDto, userId: string): Promise<SaleDocument> {
-    const sale = await this.findById(id, branchId);
-
-    if (sale.isCancelled) {
+    if (!Types.ObjectId.isValid(id)) {
       const i18n = I18nContext.current();
-      throw new BadRequestException(i18n ? i18n.t('common.errors.alreadyCancelled') : 'Esta venta ya se encuentra cancelada');
+      throw new BadRequestException(i18n ? i18n.t('common.errors.invalidSaleId') : 'ID de venta inválido');
+    }
+
+    // Atomic update to mark cancelled and prevent race conditions / duplicate stock restorations
+    const sale = await this.saleModel.findOneAndUpdate(
+      { _id: id, branch: branchId, isCancelled: { $ne: true } },
+      {
+        isCancelled: true,
+        cancelledAt: new Date(),
+        cancelledBy: userId as any,
+        cancelReason: cancelSaleDto.reason,
+      },
+      { new: true }
+    ).populate([
+      'customer',
+      'seller',
+      'items.product',
+      {
+        path: 'items.serviceId',
+        populate: {
+          path: 'supplies.product',
+          model: 'Product',
+        },
+      },
+      'quoteRef',
+    ]).exec();
+
+    if (!sale) {
+      const i18n = I18nContext.current();
+      throw new BadRequestException(i18n ? i18n.t('common.errors.alreadyCancelled') : 'Esta venta ya se encuentra cancelada o no existe');
     }
 
     // Restore stock in inventory for direct products and service supplies
@@ -285,12 +312,7 @@ export class SalesService {
       }
     }
 
-    sale.isCancelled = true;
-    sale.cancelledAt = new Date();
-    sale.cancelledBy = userId as any;
-    sale.cancelReason = cancelSaleDto.reason;
-
-    return (await sale.save()).populate(['customer', 'seller', 'cancelledBy']);
+    return sale;
   }
 
   async findAll(branchId: string, filters: { customerId?: string; isCancelled?: boolean; hasService?: boolean; startDate?: string; endDate?: string; utcOffsetMinutes?: number }): Promise<SaleDocument[]> {

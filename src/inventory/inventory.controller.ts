@@ -236,8 +236,13 @@ export class InventoryController {
   @Patch('products/:id')
   @Roles('admin', 'warehouse')
   @ApiOperation({ summary: 'Actualizar un producto (Admin / Warehouse)' })
-  updateProduct(@BranchId() branchId: string, @Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
-    return this.inventoryService.updateProduct(id, branchId, updateProductDto);
+  updateProduct(
+    @BranchId() branchId: string,
+    @Param('id') id: string,
+    @Body() updateProductDto: UpdateProductDto,
+    @CurrentUser('_id') userId: string,
+  ) {
+    return this.inventoryService.updateProduct(id, branchId, updateProductDto, userId);
   }
 
   @Delete('products/:id')
