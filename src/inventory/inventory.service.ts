@@ -356,6 +356,7 @@ export class InventoryService {
       quantity,
       reason,
       performedBy: userId as any,
+      balanceAfter: product.stock,
     });
 
     if (createStockMovementDto.providerId) {

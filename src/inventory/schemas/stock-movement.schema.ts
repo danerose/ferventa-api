@@ -29,6 +29,9 @@ export class StockMovement {
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Branch', required: true })
   branch: Branch | any;
+
+  @Prop({ type: Number })
+  balanceAfter?: number;
 }
 
 export const StockMovementSchema = SchemaFactory.createForClass(StockMovement);
