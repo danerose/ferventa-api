@@ -74,6 +74,11 @@ export class UpdateAppointmentDto {
   @IsOptional()
   notes?: string;
 
+  @ApiPropertyOptional({ example: 'Deja llaves y 1/2 tanque de gasolina', description: 'Notas de recepción' })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  receptionNotes?: string;
+
   @ApiPropertyOptional({ example: 60, description: 'Duración estimada en minutos' })
   @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })
   @Min(1, { message: i18nValidationMessage('validation.min') })

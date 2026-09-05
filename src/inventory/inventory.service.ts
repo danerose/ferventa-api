@@ -14,6 +14,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateStockMovementDto } from './dto/create-stock-movement.dto';
 import { PaginatedResult } from '../common/dto/pagination.dto';
 import { I18nContext } from 'nestjs-i18n';
+import { buildFuzzyRegex } from '../common/utils/search.util';
 
 @Injectable()
 export class InventoryService {
@@ -38,7 +39,7 @@ export class InventoryService {
   async findAllBrands(branchId: string, search?: string, page = 1, limit = 10): Promise<PaginatedResult<Brand>> {
     const query: any = { branch: branchId };
     if (search) {
-      query.name = { $regex: search, $options: 'i' };
+      query.name = buildFuzzyRegex(search);
     }
     const skip = (page - 1) * limit;
     const [items, total] = await Promise.all([
@@ -79,7 +80,7 @@ export class InventoryService {
   async findAllCategories(branchId: string, search?: string, page = 1, limit = 10): Promise<PaginatedResult<Category>> {
     const query: any = { branch: branchId };
     if (search) {
-      query.name = { $regex: search, $options: 'i' };
+      query.name = buildFuzzyRegex(search);
     }
     const skip = (page - 1) * limit;
     const [items, total] = await Promise.all([
@@ -114,9 +115,10 @@ export class InventoryService {
   async findAllProviders(branchId: string, search?: string, page = 1, limit = 10): Promise<PaginatedResult<Provider>> {
     const query: any = { branch: branchId };
     if (search) {
+      const regex = buildFuzzyRegex(search);
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { providerCode: { $regex: search, $options: 'i' } },
+        { name: regex },
+        { providerCode: regex },
       ];
     }
     const skip = (page - 1) * limit;
@@ -202,10 +204,11 @@ export class InventoryService {
       query.brand = filters.brandId;
     }
     if (filters.search) {
+      const regex = buildFuzzyRegex(filters.search);
       query.$or = [
-        { name: { $regex: filters.search, $options: 'i' } },
-        { sku: { $regex: filters.search, $options: 'i' } },
-        { compatibility: { $regex: filters.search, $options: 'i' } },
+        { name: regex },
+        { sku: regex },
+        { compatibility: regex },
       ];
     }
 
@@ -218,13 +221,14 @@ export class InventoryService {
   }
 
   async searchProducts(branchId: string, search: string, page = 1, limit = 10): Promise<PaginatedResult<ProductDocument>> {
+    const regex = buildFuzzyRegex(search);
     const query = {
       isActive: true,
       branch: branchId,
       $or: [
-        { name: { $regex: search, $options: 'i' } },
-        { sku: { $regex: search, $options: 'i' } },
-        { compatibility: { $regex: search, $options: 'i' } },
+        { name: regex },
+        { sku: regex },
+        { compatibility: regex },
       ],
     };
     const skip = (page - 1) * limit;

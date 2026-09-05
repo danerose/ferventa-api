@@ -215,9 +215,13 @@ export class AppointmentsController {
   @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
   @Roles('admin', 'seller')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Recibir vehículo para una cita agendada (Check-in rápido en sucursal)' })
-  checkIn(@BranchId() branchId: string, @Param('id') id: string) {
-    return this.appointmentsService.checkIn(id, branchId);
+  @ApiOperation({ summary: 'Recibir vehículo para una cita agendada (Check-in rápido en sucursal con notas de recepción)' })
+  checkIn(
+    @BranchId() branchId: string,
+    @Param('id') id: string,
+    @Body('receptionNotes') receptionNotes?: string,
+  ) {
+    return this.appointmentsService.checkIn(id, branchId, receptionNotes);
   }
 
   @Delete(':id')

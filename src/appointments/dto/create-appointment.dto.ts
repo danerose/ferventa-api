@@ -79,10 +79,15 @@ export class CreateAppointmentDto {
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   scheduledAt: string;
 
-  @ApiPropertyOptional({ example: 'El cliente prefiere aceite sintético', description: 'Notas opcionales' })
+  @ApiPropertyOptional({ example: 'El cliente prefiere aceite sintético', description: 'Notas opcionales de la cita' })
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsOptional()
   notes?: string;
+
+  @ApiPropertyOptional({ example: 'Deja llaves y 1/2 tanque de gasolina', description: 'Notas tomadas al recibir el vehículo' })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  receptionNotes?: string;
 
   @ApiPropertyOptional({ example: 15, description: 'Duración estimada en minutos (default: 15)' })
   @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })

@@ -7,6 +7,7 @@ import { CustomersModule } from '../customers/customers.module';
 import { VehiclesModule } from '../vehicles/vehicles.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
+import { SalesModule } from '../sales/sales.module';
 
 @Module({
   imports: [
@@ -15,9 +16,11 @@ import { AppointmentsModule } from '../appointments/appointments.module';
     VehiclesModule,
     InventoryModule,
     forwardRef(() => AppointmentsModule),
+    forwardRef(() => SalesModule),
   ],
   controllers: [MaintenanceController],
   providers: [MaintenanceService],
   exports: [MaintenanceService, MongooseModule],
 })
 export class MaintenanceModule {}
+

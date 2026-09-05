@@ -11,6 +11,7 @@ import { VehiclesService } from '../vehicles/vehicles.service';
 import { WhatsAppService } from './whatsapp.service';
 import { MaintenanceService } from '../maintenance/maintenance.service';
 import { I18nContext } from 'nestjs-i18n';
+import { buildFuzzyRegex } from '../common/utils/search.util';
 
 @Injectable()
 export class AppointmentsService {
@@ -241,11 +242,12 @@ export class AppointmentsService {
     }
 
     if (filters.search) {
+      const regex = buildFuzzyRegex(filters.search);
       query.$or = [
-        { customerName: { $regex: filters.search, $options: 'i' } },
-        { customerPhone: { $regex: filters.search, $options: 'i' } },
-        { serviceRequested: { $regex: filters.search, $options: 'i' } },
-        { 'vehicle.serialNumberLastFour': { $regex: filters.search, $options: 'i' } },
+        { customerName: regex },
+        { customerPhone: { $regex: filters.search.trim(), $options: 'i' } },
+        { serviceRequested: regex },
+        { 'vehicle.serialNumberLastFour': { $regex: filters.search.trim(), $options: 'i' } },
       ];
     }
 
@@ -547,12 +549,15 @@ export class AppointmentsService {
    * Marks appointment as completed and activates the linked maintenance order to 'not_started'.
    * Returns both the updated appointment and the activated maintenance order.
    */
-  async checkIn(id: string, branchId: string): Promise<{ appointment: AppointmentDocument; maintenance: any }> {
+  async checkIn(id: string, branchId: string, receptionNotes?: string): Promise<{ appointment: AppointmentDocument; maintenance: any }> {
     const appointment = await this.findById(id, branchId);
     appointment.status = 'completed';
+    if (receptionNotes !== undefined) {
+      appointment.receptionNotes = receptionNotes;
+    }
     const saved = await appointment.save();
 
-    let maintenance = await this.maintenanceService.activateFromAppointment(id, branchId);
+    let maintenance = await this.maintenanceService.activateFromAppointment(id, branchId, receptionNotes);
 
     // If no maintenance existed, auto-create one
     if (!maintenance) {
@@ -580,8 +585,9 @@ export class AppointmentsService {
           (vehicle._id as any).toString(),
           appointment.serviceRequested,
           branchId,
+          receptionNotes,
         );
-        maintenance = await this.maintenanceService.activateFromAppointment((saved._id as any).toString(), branchId);
+        maintenance = await this.maintenanceService.activateFromAppointment((saved._id as any).toString(), branchId, receptionNotes);
       }
     }
 

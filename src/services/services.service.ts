@@ -7,6 +7,7 @@ import { UpdateServiceDto } from './dto/update-service.dto';
 import { InventoryService } from '../inventory/inventory.service';
 import { PaginatedResult } from '../common/dto/pagination.dto';
 import { I18nContext } from 'nestjs-i18n';
+import { buildFuzzyRegex } from '../common/utils/search.util';
 
 @Injectable()
 export class ServicesService {
@@ -39,7 +40,7 @@ export class ServicesService {
 
     if (filters.search) {
       query.$or = [
-        { name: { $regex: filters.search, $options: 'i' } },
+        { name: buildFuzzyRegex(filters.search) },
       ];
     }
 
@@ -58,7 +59,7 @@ export class ServicesService {
   }
 
   async searchByName(search: string, isActive?: boolean, page = 1, limit = 10): Promise<PaginatedResult<PredefinedServiceDocument>> {
-    const query: any = { name: { $regex: search, $options: 'i' } };
+    const query: any = { name: buildFuzzyRegex(search) };
     if (isActive !== undefined) {
       query.isActive = isActive;
     }

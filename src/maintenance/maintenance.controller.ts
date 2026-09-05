@@ -24,6 +24,8 @@ import { CreateMaintenanceDto } from './dto/create-maintenance.dto';
 import { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
 import { AddItemUsedDto } from './dto/add-item-used.dto';
 import { UploadEvidenceDto } from './dto/upload-evidence.dto';
+import { AddDiagnosticNoteDto } from './dto/add-diagnostic-note.dto';
+import { LinkSaleDto } from './dto/link-sale.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -86,13 +88,18 @@ export class MaintenanceController {
   @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
   @Roles('admin', 'seller', 'warehouse', 'mechanic')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Listar órdenes de mantenimiento con filtros' })
+  @ApiOperation({ summary: 'Listar órdenes de mantenimiento con filtros avanzados de estado, fechas y vistas' })
   findAll(
     @BranchId() branchId: string,
     @Query('customerId') customerId?: string,
     @Query('status') status?: string,
+    @Query('scope') scope?: 'active' | 'delivered_recent' | 'history',
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('dateField') dateField?: any,
+    @Query('search') search?: string,
   ) {
-    return this.maintenanceService.findAll(branchId, { customerId, status });
+    return this.maintenanceService.findAll(branchId, { customerId, status, scope, from, to, dateField, search });
   }
 
   @Get(':id')
@@ -109,8 +116,68 @@ export class MaintenanceController {
   @Roles('admin', 'seller', 'mechanic')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Actualizar estado o mano de obra de una orden' })
-  update(@BranchId() branchId: string, @Param('id') id: string, @Body() updateMaintenanceDto: UpdateMaintenanceDto) {
-    return this.maintenanceService.update(id, branchId, updateMaintenanceDto);
+  update(
+    @BranchId() branchId: string,
+    @Param('id') id: string,
+    @Body() updateMaintenanceDto: UpdateMaintenanceDto,
+    @CurrentUser('_id') userId: string,
+  ) {
+    return this.maintenanceService.update(id, branchId, updateMaintenanceDto, userId);
+  }
+
+  @Patch(':id/notify')
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
+  @Roles('admin', 'seller', 'mechanic')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Registrar que se notificó al cliente que su vehículo está listo' })
+  notifyClient(
+    @BranchId() branchId: string,
+    @Param('id') id: string,
+    @CurrentUser('_id') userId: string,
+    @Body('notes') notes?: string,
+  ) {
+    return this.maintenanceService.notifyClient(id, branchId, userId, notes);
+  }
+
+  @Patch(':id/link-sale')
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
+  @Roles('admin', 'seller')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Vincular un ticket de compra / venta POS a la orden de mantenimiento' })
+  linkSale(
+    @BranchId() branchId: string,
+    @Param('id') id: string,
+    @CurrentUser('_id') userId: string,
+    @Body() dto: LinkSaleDto,
+  ) {
+    return this.maintenanceService.linkSale(id, branchId, dto, userId);
+  }
+
+  @Patch(':id/unlink-sale')
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
+  @Roles('admin', 'seller')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Desvincular el ticket de compra / venta POS de la orden de mantenimiento' })
+  unlinkSale(
+    @BranchId() branchId: string,
+    @Param('id') id: string,
+    @CurrentUser('_id') userId: string,
+  ) {
+    return this.maintenanceService.unlinkSale(id, branchId, userId);
+  }
+
+  @Post(':id/notes')
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
+  @Roles('admin', 'seller', 'mechanic')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Agregar nota de diagnóstico/falla detectada durante el servicio' })
+  addDiagnosticNote(
+    @BranchId() branchId: string,
+    @Param('id') id: string,
+    @CurrentUser('_id') userId: string,
+    @Body() dto: AddDiagnosticNoteDto,
+  ) {
+    return this.maintenanceService.addDiagnosticNote(id, branchId, dto.note, userId);
   }
 
   @Post(':id/items')

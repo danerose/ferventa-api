@@ -6,6 +6,7 @@ import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { CustomersService } from '../customers/customers.service';
 import { I18nContext } from 'nestjs-i18n';
+import { buildFuzzyRegex } from '../common/utils/search.util';
 
 @Injectable()
 export class VehiclesService {
@@ -42,10 +43,11 @@ export class VehiclesService {
       query.customer = filters.customerId;
     }
     if (filters.search) {
+      const regex = buildFuzzyRegex(filters.search);
       query.$or = [
-        { brand: { $regex: filters.search, $options: 'i' } },
-        { model: { $regex: filters.search, $options: 'i' } },
-        { serialNumberLastFour: { $regex: filters.search, $options: 'i' } },
+        { brand: regex },
+        { model: regex },
+        { serialNumberLastFour: { $regex: filters.search.trim(), $options: 'i' } },
       ];
     }
     return this.vehicleModel.find(query).populate('customer').exec();

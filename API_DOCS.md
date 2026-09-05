@@ -1626,17 +1626,27 @@ Base URL: `/api`
 ---
 
 ### [PATCH] /appointments/{id}/check-in
-**Summary**: Recibir vehículo para una cita agendada (Check-in rápido en sucursal)
+**Summary**: Recibir vehículo para una cita agendada (Check-in rápido en sucursal con notas de recepción)
 
 **Parameters**:
-- `id` (path):  (Required)
+- `id` (path): ID de la cita (Required)
+
+**Request Body**:
+```json
+{
+  "receptionNotes": "Deja llaves, 1/2 tanque de gasolina, rayón en puerta derecha"
+}
+```
 
 **Responses**:
 - `200`: 
   ```json
   {
     "success": true,
-    "data": null,
+    "data": {
+      "appointment": { ... },
+      "maintenance": { ... }
+    },
     "message": "Success"
   }
   ```
@@ -1722,18 +1732,67 @@ Base URL: `/api`
 ---
 
 ### [GET] /maintenance
-**Summary**: Listar órdenes de mantenimiento con filtros
+**Summary**: Listar órdenes de mantenimiento con filtros avanzados de estado, fechas y vistas
 
 **Parameters**:
-- `customerId` (query):  (Required)
-- `status` (query):  (Required)
+- `customerId` (query): Filtrar por ID de cliente (Opcional)
+- `status` (query): Filtrar por estado específico (ej. `in_progress` o lista separada por comas `in_progress,completed`) (Opcional)
+- `scope` (query): Vista predefinida (`active` = en taller, `delivered_recent` = entregados últimos 7 días, `history` = histórico general) (Opcional)
+- `from` (query): Fecha inicio (YYYY-MM-DD) (Opcional)
+- `to` (query): Fecha fin (YYYY-MM-DD) (Opcional)
+- `dateField` (query): Campo de fecha a filtrar (`receptionDate`, `completedAt`, `deliveredAt`, `createdAt`, `startDate`, `endDate`) (Opcional, default: `receptionDate`)
+- `search` (query): Búsqueda difusa (tolerante a errores) por cliente, teléfono, placas, modelo o notas (Opcional)
 
 **Responses**:
 - `200`: 
   ```json
   {
     "success": true,
-    "data": null,
+    "data": [
+      {
+        "_id": "66d9b231901a87b801234567",
+        "customer": {
+          "_id": "66d9b1... ",
+          "name": "Juan Pérez",
+          "phone": "5512345678"
+        },
+        "vehicle": {
+          "_id": "66d9b2... ",
+          "brand": "Italika",
+          "model": "FT150",
+          "serialNumberLastFour": "1234"
+        },
+        "status": "in_progress",
+        "receptionDate": "2026-09-05T10:00:00.000Z",
+        "startedAt": "2026-09-05T10:30:00.000Z",
+        "completedAt": null,
+        "notifiedAt": null,
+        "deliveredAt": null,
+        "receptionNotes": "Deja llaves y 1/2 tanque de gasolina",
+        "diagnosticNotes": [
+          {
+            "note": "Se detectó fuga en retén de cigüeñal",
+            "createdAt": "2026-09-05T11:00:00.000Z",
+            "createdBy": { "_id": "...", "name": "Mecánico Roberto" }
+          }
+        ],
+        "statusHistory": [
+          {
+            "status": "not_started",
+            "changedAt": "2026-09-05T10:00:00.000Z",
+            "notes": "Recepción directa en sucursal (Walk-in)"
+          },
+          {
+            "status": "in_progress",
+            "changedAt": "2026-09-05T10:30:00.000Z",
+            "notes": "Mecánico inició desmontaje"
+          }
+        ],
+        "laborCost": 500,
+        "itemsUsed": [],
+        "notes": "Servicio de frenos y afinación"
+      }
+    ],
     "message": "Success"
   }
   ```
@@ -1744,10 +1803,49 @@ Base URL: `/api`
 **Summary**: Obtener detalle de una orden de mantenimiento por ID
 
 **Parameters**:
-- `id` (path):  (Required)
+- `id` (path): ID de la orden de mantenimiento (Required)
 
 **Responses**:
-- `200`: 
+- `200`: Retorna la orden de mantenimiento completa con `customer`, `vehicle`, `createdBy`, `appointment`, `itemsUsed`, `statusHistory` y `diagnosticNotes`.
+
+---
+
+### [PATCH] /maintenance/{id}
+**Summary**: Actualizar estado, mano de obra o notas de una orden
+
+**Parameters**:
+- `id` (path): ID de la orden de mantenimiento (Required)
+
+**Request Body**:
+```json
+{
+  "status": "completed",
+  "laborCost": 1200,
+  "notes": "Servicio concluido con éxito",
+  "receptionNotes": "Deja llaves y 1/2 tanque"
+}
+```
+
+**Responses**:
+- `200`: Orden de mantenimiento actualizada con timestamps de hitos (`startedAt`, `completedAt`, `deliveredAt`) y nuevo registro en `statusHistory`.
+
+---
+
+### [PATCH] /maintenance/{id}/notify
+**Summary**: Registrar que se notificó al cliente que su vehículo está listo para recolección
+
+**Parameters**:
+- `id` (path): ID de la orden de mantenimiento (Required)
+
+**Request Body**:
+```json
+{
+  "notes": "Se notificó al cliente vía llamada telefónica / WhatsApp"
+}
+```
+
+**Responses**:
+- `200`: Orden actualizada con `notifiedAt: Date` y nuevo registro en `statusHistory`.
   ```json
   {
     "success": true,
@@ -1758,23 +1856,21 @@ Base URL: `/api`
 
 ---
 
-### [PATCH] /maintenance/{id}
-**Summary**: Actualizar estado o mano de obra de una orden
+### [POST] /maintenance/{id}/notes
+**Summary**: Agregar nota de diagnóstico o registro de fallas encontradas durante el mantenimiento
 
 **Parameters**:
-- `id` (path):  (Required)
+- `id` (path): ID de la orden de mantenimiento (Required)
 
 **Request Body**:
 ```json
 {
-  "status": "awaiting_appointment",
-  "laborCost": 0,
-  "notes": "string"
+  "note": "Se detectó fuga de aceite en retén y desgaste excesivo en balatas traseras"
 }
 ```
 
 **Responses**:
-- `200`: 
+- `201`: Retorna la orden actualizada con la nueva nota en el arreglo `diagnosticNotes` (incluye fecha y usuario autor).
   ```json
   {
     "success": true,
@@ -2276,7 +2372,61 @@ Base URL: `/api`
   ```json
   {
     "success": true,
-    "data": null,
+    "data": {
+      "not_started": { "count": 3, "avgLaborCost": 350 },
+      "in_progress": { "count": 2, "avgLaborCost": 600 },
+      "completed": { "count": 4, "avgLaborCost": 500 },
+      "delivered": { "count": 15, "avgLaborCost": 550 }
+    },
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /reports/maintenance-metrics
+**Summary**: Obtener métricas de tiempos, promedios de estancia y vehículos pendientes de recolección
+
+**Parameters**:
+- `startDate` (query): Fecha inicio (YYYY-MM-DD) (Opcional)
+- `endDate` (query): Fecha fin (YYYY-MM-DD) (Opcional)
+
+**Responses**:
+- `200`:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "volume": {
+        "totalReceived": 24,
+        "totalCompleted": 20,
+        "totalDelivered": 16,
+        "pendingPickupCount": 4
+      },
+      "averages": {
+        "avgQueueHours": 2.5,
+        "avgQueueDays": 0.1,
+        "avgWorkHours": 4.8,
+        "avgWorkDays": 0.2,
+        "avgPickupHours": 48.0,
+        "avgPickupDays": 2.0,
+        "avgTotalStayHours": 55.3,
+        "avgTotalStayDays": 2.3
+      },
+      "pendingPickupVehicles": [
+        {
+          "_id": "66d9b231901a87b801234567",
+          "customerName": "Juan Pérez",
+          "customerPhone": "5512345678",
+          "vehicle": "Italika FT150 (1234)",
+          "completedAt": "2026-09-01T15:00:00.000Z",
+          "notifiedAt": "2026-09-01T15:30:00.000Z",
+          "daysWaiting": 4,
+          "daysSinceNotified": 4,
+          "notes": "Listo para entrega, cambio de balatas"
+        }
+      ]
+    },
     "message": "Success"
   }
   ```

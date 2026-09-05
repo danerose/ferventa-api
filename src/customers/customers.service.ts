@@ -5,6 +5,7 @@ import { Customer, CustomerDocument } from './schemas/customer.schema';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { I18nContext } from 'nestjs-i18n';
+import { buildFuzzyRegex } from '../common/utils/search.util';
 
 @Injectable()
 export class CustomersService {
@@ -13,20 +14,11 @@ export class CustomersService {
   ) {}
 
   async create(createCustomerDto: CreateCustomerDto, branchId: string): Promise<CustomerDocument> {
-    const phoneExisting = await this.customerModel.findOne({ phone: createCustomerDto.phone.trim(), branch: branchId });
-    if (phoneExisting) {
+    const existing = await this.customerModel.findOne({ phone: createCustomerDto.phone.trim(), branch: branchId });
+    if (existing) {
       const i18n = I18nContext.current();
-      throw new BadRequestException(i18n ? i18n.t('common.errors.phoneRegistered') : 'Ya existe un cliente registrado con ese teléfono');
+      throw new BadRequestException(i18n ? i18n.t('common.errors.customerPhoneRegistered') : 'Un cliente con este teléfono ya existe');
     }
-
-    if (createCustomerDto.email) {
-      const emailExisting = await this.customerModel.findOne({ email: createCustomerDto.email.toLowerCase().trim(), branch: branchId });
-      if (emailExisting) {
-        const i18n = I18nContext.current();
-        throw new BadRequestException(i18n ? i18n.t('common.errors.customerEmailRegistered') : 'Ya existe un cliente registrado con ese correo electrónico');
-      }
-    }
-
     const created = new this.customerModel({
       ...createCustomerDto,
       branch: branchId,
@@ -39,9 +31,10 @@ export class CustomersService {
   async findAll(branchId: string, search?: string): Promise<CustomerDocument[]> {
     const query: any = { branch: branchId };
     if (search) {
+      const regex = buildFuzzyRegex(search);
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search, $options: 'i' } },
+        { name: regex },
+        { phone: { $regex: search.trim(), $options: 'i' } },
       ];
     }
     return this.customerModel.find(query).sort({ name: 1 }).exec();

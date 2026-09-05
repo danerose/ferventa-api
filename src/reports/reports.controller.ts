@@ -4,11 +4,13 @@ import { ReportsService } from './reports.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { BranchGuard } from '../common/guards/branch.guard';
+import { BranchId } from '../common/decorators/branch-id.decorator';
 import { I18nContext } from 'nestjs-i18n';
 
 @ApiTags('Reportes & Dashboard')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
@@ -53,6 +55,19 @@ export class ReportsController {
   @ApiOperation({ summary: 'Obtener resumen de órdenes de servicio por estatus' })
   getMaintenanceSummary() {
     return this.reportsService.getMaintenanceSummary();
+  }
+
+  @Get('maintenance-metrics')
+  @Roles('admin', 'seller')
+  @ApiOperation({ summary: 'Obtener métricas de tiempos, promedios de estancia y vehículos pendientes de recolección' })
+  @ApiQuery({ name: 'startDate', required: false, example: '2026-07-01' })
+  @ApiQuery({ name: 'endDate', required: false, example: '2026-07-31' })
+  getMaintenanceMetrics(
+    @BranchId() branchId: string,
+    @Query('startDate') start?: string,
+    @Query('endDate') end?: string,
+  ) {
+    return this.reportsService.getMaintenanceMetrics(branchId, start, end);
   }
 
   @Get('appointments')

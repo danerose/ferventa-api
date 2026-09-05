@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsMongoId, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { i18nValidationMessage } from 'nestjs-i18n';
 
 export class UpdateMaintenanceDto {
@@ -20,8 +20,24 @@ export class UpdateMaintenanceDto {
   @IsOptional()
   laborCost?: number;
 
-  @ApiPropertyOptional({ example: 'Se cambiaron balatas delanteras y rectificaron discos', description: 'Notas y comentarios' })
+  @ApiPropertyOptional({ example: 'Se cambiaron balatas delanteras y rectificaron discos', description: 'Notas y comentarios generales' })
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsOptional()
   notes?: string;
+
+  @ApiPropertyOptional({ example: 'Deja llaves y 1/2 tanque de gasolina', description: 'Notas de recepción' })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  receptionNotes?: string;
+
+  @ApiPropertyOptional({ example: 'Roberto Sánchez', description: 'Mecánico asignado' })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  assignedMechanic?: string;
+
+  @ApiPropertyOptional({ example: '60d5ec49c6d48227b409748e', description: 'ID de la venta/ticket POS vinculado' })
+  @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
+  @IsOptional()
+  saleId?: string | null;
 }
+

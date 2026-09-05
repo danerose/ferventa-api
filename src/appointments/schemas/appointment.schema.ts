@@ -62,6 +62,10 @@ export class Appointment {
   @Prop({ type: String, default: '' })
   notes: string;
 
+  /** Notas tomadas durante la recepción del vehículo (ej. "Deja llaves, 1/2 tanque de gasolina, detalles en pintura") */
+  @Prop({ type: String, default: '' })
+  receptionNotes?: string;
+
   @Prop({ type: String, trim: true })
   branchName?: string;
 

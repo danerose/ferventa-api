@@ -28,4 +28,21 @@ export class CreateMaintenanceDto {
   @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
   @IsOptional()
   appointmentId?: string;
+
+  @ApiPropertyOptional({ example: 'Deja llaves y 1/2 tanque de gasolina', description: 'Notas de recepción' })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  receptionNotes?: string;
+
+  @ApiPropertyOptional({ example: 'Roberto Sánchez', description: 'Mecánico asignado' })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  assignedMechanic?: string;
+
+  @ApiPropertyOptional({ example: '60d5ec49c6d48227b409748e', description: 'ID de la venta/ticket POS vinculado' })
+  @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
+  @IsOptional()
+  saleId?: string;
 }
+
+

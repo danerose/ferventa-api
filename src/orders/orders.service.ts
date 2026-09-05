@@ -13,6 +13,7 @@ import { AddOrderPaymentDto } from './dto/add-order-payment.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { CustomersService } from '../customers/customers.service';
 import { I18nContext } from 'nestjs-i18n';
+import { buildFuzzyRegex } from '../common/utils/search.util';
 
 @Injectable()
 export class OrdersService {
@@ -167,11 +168,12 @@ export class OrdersService {
     }
 
     if (filters.search) {
+      const regex = buildFuzzyRegex(filters.search);
       query.$or = [
-        { folio: { $regex: filters.search, $options: 'i' } },
-        { customerName: { $regex: filters.search, $options: 'i' } },
-        { customerPhone: { $regex: filters.search, $options: 'i' } },
-        { itemDescription: { $regex: filters.search, $options: 'i' } },
+        { folio: { $regex: filters.search.trim(), $options: 'i' } },
+        { customerName: regex },
+        { customerPhone: { $regex: filters.search.trim(), $options: 'i' } },
+        { itemDescription: regex },
       ];
     }
 

@@ -128,6 +128,142 @@ export class ReportsService {
     }, {});
   }
 
+  async getMaintenanceMetrics(branchId?: string, start?: string, end?: string) {
+    const matchQuery: any = {};
+    if (branchId) {
+      matchQuery.branch = branchId;
+    }
+
+    if (start || end) {
+      const dateRange: any = {};
+      if (start) dateRange.$gte = new Date(start);
+      if (end) {
+        const toDate = new Date(end);
+        toDate.setUTCHours(23, 59, 59, 999);
+        dateRange.$lte = toDate;
+      }
+      matchQuery.$or = [
+        { receptionDate: dateRange },
+        { receptionDate: null, startDate: dateRange },
+        { receptionDate: null, startDate: null, createdAt: dateRange },
+      ];
+    }
+
+    const orders = await this.maintenanceModel
+      .find(matchQuery)
+      .populate('customer', 'name phone')
+      .populate('vehicle', 'brand model serialNumberLastFour')
+      .exec();
+
+    let totalQueueHours = 0;
+    let queueCount = 0;
+    let totalWorkHours = 0;
+    let workCount = 0;
+    let totalPickupHours = 0;
+    let pickupCount = 0;
+    let totalStayHours = 0;
+    let stayCount = 0;
+
+    let completedInRangeCount = 0;
+    let deliveredInRangeCount = 0;
+
+    orders.forEach((o) => {
+      const recDate = o.receptionDate || o.startDate || (o as any).createdAt;
+      const started = o.startedAt;
+      const compDate = o.completedAt || o.endDate;
+      const delivDate = o.deliveredAt || (o.status === 'delivered' ? o.endDate : null);
+
+      if (recDate && started) {
+        const diffMs = new Date(started).getTime() - new Date(recDate).getTime();
+        if (diffMs >= 0) {
+          totalQueueHours += diffMs / (1000 * 60 * 60);
+          queueCount++;
+        }
+      }
+
+      if (started && compDate) {
+        const diffMs = new Date(compDate).getTime() - new Date(started).getTime();
+        if (diffMs >= 0) {
+          totalWorkHours += diffMs / (1000 * 60 * 60);
+          workCount++;
+        }
+      }
+
+      if (compDate && delivDate) {
+        const diffMs = new Date(delivDate).getTime() - new Date(compDate).getTime();
+        if (diffMs >= 0) {
+          totalPickupHours += diffMs / (1000 * 60 * 60);
+          pickupCount++;
+        }
+      }
+
+      if (recDate && delivDate) {
+        const diffMs = new Date(delivDate).getTime() - new Date(recDate).getTime();
+        if (diffMs >= 0) {
+          totalStayHours += diffMs / (1000 * 60 * 60);
+          stayCount++;
+        }
+      }
+
+      if (o.status === 'completed' || o.status === 'delivered') {
+        completedInRangeCount++;
+      }
+      if (o.status === 'delivered') {
+        deliveredInRangeCount++;
+      }
+    });
+
+    // Find all vehicles currently in 'completed' status awaiting pickup
+    const pendingPickupOrders = await this.maintenanceModel
+      .find({ branch: branchId, status: 'completed' })
+      .populate('customer', 'name phone')
+      .populate('vehicle', 'brand model serialNumberLastFour')
+      .sort({ updatedAt: 1 })
+      .exec();
+
+    const now = Date.now();
+    const pendingPickupVehicles = pendingPickupOrders.map((order) => {
+      const finishDate = order.completedAt || order.endDate || (order as any).updatedAt || (order as any).createdAt;
+      const finishMs = finishDate ? new Date(finishDate).getTime() : now;
+      const daysWaiting = Math.max(0, Math.floor((now - finishMs) / (1000 * 60 * 60 * 24)));
+
+      const notifiedDate = order.notifiedAt ? new Date(order.notifiedAt).getTime() : null;
+      const daysSinceNotified = notifiedDate ? Math.max(0, Math.floor((now - notifiedDate) / (1000 * 60 * 60 * 24))) : null;
+
+      return {
+        _id: order._id,
+        customerName: (order.customer as any)?.name || 'Cliente sin nombre',
+        customerPhone: (order.customer as any)?.phone || 'Sin teléfono',
+        vehicle: `${(order.vehicle as any)?.brand || ''} ${(order.vehicle as any)?.model || ''} (${(order.vehicle as any)?.serialNumberLastFour || ''})`.trim(),
+        completedAt: finishDate,
+        notifiedAt: order.notifiedAt || null,
+        daysWaiting,
+        daysSinceNotified,
+        notes: order.notes,
+      };
+    });
+
+    return {
+      volume: {
+        totalReceived: orders.length,
+        totalCompleted: completedInRangeCount,
+        totalDelivered: deliveredInRangeCount,
+        pendingPickupCount: pendingPickupOrders.length,
+      },
+      averages: {
+        avgQueueHours: queueCount > 0 ? +(totalQueueHours / queueCount).toFixed(1) : 0,
+        avgQueueDays: queueCount > 0 ? +(totalQueueHours / queueCount / 24).toFixed(1) : 0,
+        avgWorkHours: workCount > 0 ? +(totalWorkHours / workCount).toFixed(1) : 0,
+        avgWorkDays: workCount > 0 ? +(totalWorkHours / workCount / 24).toFixed(1) : 0,
+        avgPickupHours: pickupCount > 0 ? +(totalPickupHours / pickupCount).toFixed(1) : 0,
+        avgPickupDays: pickupCount > 0 ? +(totalPickupHours / pickupCount / 24).toFixed(1) : 0,
+        avgTotalStayHours: stayCount > 0 ? +(totalStayHours / stayCount).toFixed(1) : 0,
+        avgTotalStayDays: stayCount > 0 ? +(totalStayHours / stayCount / 24).toFixed(1) : 0,
+      },
+      pendingPickupVehicles,
+    };
+  }
+
   async getAppointmentsSummary(start: string, end: string) {
     const startDate = new Date(start);
     const endDate = new Date(end);
