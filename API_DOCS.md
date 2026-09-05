@@ -51,45 +51,28 @@ Base URL: `/api`
 **Request Body**:
 ```json
 {
-  "name": "Alexis Rojas",
-  "username": "alexis.rojas",
-  "email": "alexis@example.com",
-  "password": "Password123!",
-  "phone": "8118765432",
-  "roleId": "60d5ec49c6d48227b409748b",
+  "name": "string",
+  "username": "string",
+  "email": "string",
+  "password": "string",
+  "phone": "string",
+  "roleId": "string",
   "branches": [
-    "60d5ec49c6d48227b409748c"
+    "string"
   ]
 }
 ```
-> **Nota**: `username`, `email` y `password` son opcionales. Si no se especifican, se autogeneran automáticamente (`username` basado en el nombre, `email` como `{username}@ferventa.com`, y `password` con una contraseña temporal segura).
 
 **Responses**:
-- `201`: Usuario creado exitosamente. Devuelve los detalles del usuario creado junto con la contraseña temporal, mensaje formateado para WhatsApp y el `whatsappUrl` listo para ser abierto por el frontend.
+- `201`: Usuario creado exitosamente. Devuelve el usuario, contraseña temporal, mensaje de WhatsApp y whatsappUrl.
   ```json
   {
     "success": true,
-    "data": {
-      "user": {
-        "_id": "60d5ec49c6d48227b409748b",
-        "name": "Alexis Rojas",
-        "username": "alexis.rojas",
-        "email": "alexis.rojas@ferventa.com",
-        "phone": "8118765432",
-        "role": {
-          "_id": "60d5ec49c6d48227b409748a",
-          "name": "seller"
-        },
-        "isActive": true
-      },
-      "tempPassword": "a1b2c3d4!",
-      "message": "¡Hola Alexis Rojas! Tu cuenta en Ferventa ha sido creada exitosamente.\n\nDetalles de acceso:\n- Usuario: alexis.rojas\n- Correo: alexis.rojas@ferventa.com\n- Teléfono: 8118765432\n- Contraseña temporal: a1b2c3d4!\n\nPuedes iniciar sesión en el siguiente enlace:\n🔗 https://app.ferventa.com/login",
-      "whatsappUrl": "https://api.whatsapp.com/send?phone=528118765432&text=%C2%A1Hola%20Alexis%20Rojas!..."
-    },
-    "message": "Usuario creado exitosamente"
+    "data": null,
+    "message": "Usuario creado exitosamente. Devuelve el usuario, contraseña temporal, mensaje de WhatsApp y whatsappUrl."
   }
   ```
-- `400`: Datos inválidos, o correo / nombre de usuario ya registrado.
+- `400`: Datos inválidos o correo/usuario ya registrado.
 
 ---
 
@@ -105,15 +88,7 @@ Base URL: `/api`
   ```json
   {
     "success": true,
-    "data": [
-      {
-        "_id": "60d5ec49c6d48227b409748b",
-        "name": "Alexis Rojas",
-        "username": "alexis.rojas",
-        "email": "alexis@example.com",
-        "phone": "8118765432"
-      }
-    ],
+    "data": null,
     "message": "Success"
   }
   ```
@@ -136,19 +111,17 @@ Base URL: `/api`
 ---
 
 ### [GET] /users/generate-username
-**Summary**: Generar un nombre de usuario único basado en el nombre de la persona (Solo Admin)
+**Summary**: Generar un nombre de usuario único basado en el nombre de la persona
 
 **Parameters**:
 - `name` (query): Nombre completo de la persona (Required)
 
 **Responses**:
-- `200`: Nombre de usuario único disponible generado exitosamente
+- `200`: 
   ```json
   {
     "success": true,
-    "data": {
-      "username": "alexis.rojas"
-    },
+    "data": null,
     "message": "Success"
   }
   ```
@@ -156,43 +129,17 @@ Base URL: `/api`
 ---
 
 ### [GET] /users/check-username
-**Summary**: Validar si un nombre de usuario ya existe o está disponible (Solo Admin)
+**Summary**: Validar si un nombre de usuario ya existe o está disponible (por query param)
 
 **Parameters**:
 - `username` (query): Nombre de usuario a validar (Required)
 
 **Responses**:
-- `200`: Estado de disponibilidad del nombre de usuario
+- `200`: 
   ```json
   {
     "success": true,
-    "data": {
-      "exists": false,
-      "available": true,
-      "username": "alexis.rojas"
-    },
-    "message": "Success"
-  }
-  ```
-
----
-
-### [GET] /users/check-username/{username}
-**Summary**: Validar si un nombre de usuario ya existe por parámetro de ruta (Solo Admin)
-
-**Parameters**:
-- `username` (path): Nombre de usuario a validar (Required)
-
-**Responses**:
-- `200`: Estado de disponibilidad del nombre de usuario
-  ```json
-  {
-    "success": true,
-    "data": {
-      "exists": false,
-      "available": true,
-      "username": "alexis.rojas"
-    },
+    "data": null,
     "message": "Success"
   }
   ```
@@ -203,21 +150,29 @@ Base URL: `/api`
 **Summary**: Migrar usuarios existentes que no tengan un nombre de usuario asignado (Solo Admin)
 
 **Responses**:
-- `200`: Migración ejecutada exitosamente. Devuelve el número total de usuarios migrados y la lista de nombres asignados.
+- `200`: Migración de nombres de usuario ejecutada exitosamente.
   ```json
   {
     "success": true,
-    "data": {
-      "totalMigrated": 2,
-      "users": [
-        {
-          "id": "60d5ec49c6d48227b409748b",
-          "name": "Juan Pérez",
-          "username": "juan.perez",
-          "email": "juan@example.com"
-        }
-      ]
-    },
+    "data": null,
+    "message": "Migración de nombres de usuario ejecutada exitosamente."
+  }
+  ```
+
+---
+
+### [GET] /users/check-username/{username}
+**Summary**: Validar si un nombre de usuario ya existe o está disponible (por param de ruta)
+
+**Parameters**:
+- `username` (path):  (Required)
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
     "message": "Success"
   }
   ```
@@ -252,8 +207,13 @@ Base URL: `/api`
 ```json
 {
   "name": "string",
+  "username": "string",
   "email": "string",
   "password": "string",
+  "phone": "string",
+  "branches": [
+    "string"
+  ],
   "roleId": "string",
   "isActive": true
 }
@@ -368,27 +328,19 @@ Base URL: `/api`
 ---
 
 ### [POST] /auth/login
-**Summary**: Iniciar sesión con nombre de usuario o correo electrónico y contraseña
+**Summary**: Iniciar sesión con correo y contraseña
 
 **Request Body**:
-Opción A (por Nombre de Usuario):
 ```json
 {
-  "username": "alexis.rojas",
-  "password": "AdminPassword123!"
+  "username": "string",
+  "email": "string",
+  "password": "string"
 }
 ```
-Opción B (por Correo Electrónico):
-```json
-{
-  "email": "alexis.rojas@ferventa.com",
-  "password": "AdminPassword123!"
-}
-```
-> **Nota**: El sistema acepta indistintamente `username` o `email` en la petición. Los usuarios sin `username` asignado pueden ingresar con su correo electrónico sin problemas.
 
 **Responses**:
-- `200`: Sesión iniciada correctamente, tokens y datos de usuario retornados.
+- `200`: Sesión iniciada correctamente, tokens retornados.
   ```json
   {
     "success": true,
@@ -397,9 +349,8 @@ Opción B (por Correo Electrónico):
       "refreshToken": "eyJhbGciOiJIUzI1...",
       "user": {
         "id": "6a4e9cefd...",
-        "name": "Alexis Rojas",
-        "username": "alexis.rojas",
-        "email": "alexis.rojas@ferventa.com",
+        "name": "Administrador Inicial",
+        "email": "admin@ferventa.com",
         "role": "admin",
         "branches": [
           "6a5e6e9a0..."
@@ -467,7 +418,7 @@ Opción B (por Correo Electrónico):
       "branches": [
         "6a5e6e9a0..."
       ],
-      "lastLoginAt": "2026-07-20T22:01:38.489Z"
+      "lastLoginAt": "2026-09-04T02:56:01.273Z"
     },
     "message": "Perfil retornado con éxito"
   }
@@ -500,31 +451,47 @@ Opción B (por Correo Electrónico):
 ---
 
 ### [GET] /inventory/brands
-**Summary**: Listar todas las marcas (Paginado)
+**Summary**: Listar todas las marcas paginadas con filtro opcional de búsqueda
 
 **Parameters**:
-- `search` (query): Buscar por nombre de la marca
-- `q` (query): Alias de `search`
-- `page` (query): Número de página (default: 1)
-- `limit` (query): Elementos por página (default: 10)
+- `search` (query): Búsqueda por nombre 
+- `q` (query): Alias para término de búsqueda 
+- `page` (query): Número de página 
+- `limit` (query): Cantidad de elementos por página 
+- `categoryId` (query): Filtrar por ID de Categoría 
+- `brandId` (query): Filtrar por ID de Marca 
+- `isActive` (query): Filtrar por estado activo 
 
 **Responses**:
 - `200`: 
   ```json
   {
     "success": true,
-    "data": {
-      "items": [
-        {
-          "_id": "60d5ec49c6d48227b409748b",
-          "name": "Brembo"
-        }
-      ],
-      "total": 1,
-      "page": 1,
-      "limit": 10,
-      "totalPages": 1
-    },
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /inventory/brands/search
+**Summary**: Buscar marcas por nombre
+
+**Parameters**:
+- `q` (query): Término de búsqueda por nombre (Required)
+- `search` (query):  (Required)
+- `page` (query): Número de página 
+- `limit` (query): Cantidad de elementos por página 
+- `categoryId` (query): Filtrar por ID de Categoría 
+- `brandId` (query): Filtrar por ID de Marca 
+- `isActive` (query): Filtrar por estado activo 
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
     "message": "Success"
   }
   ```
@@ -572,31 +539,47 @@ Opción B (por Correo Electrónico):
 ---
 
 ### [GET] /inventory/categories
-**Summary**: Listar todas las categorías (Paginado)
+**Summary**: Listar todas las categorías paginadas con filtro opcional de búsqueda
 
 **Parameters**:
-- `search` (query): Buscar por nombre de la categoría
-- `q` (query): Alias de `search`
-- `page` (query): Número de página (default: 1)
-- `limit` (query): Elementos por página (default: 10)
+- `search` (query): Búsqueda por nombre 
+- `q` (query): Alias para término de búsqueda 
+- `page` (query): Número de página 
+- `limit` (query): Cantidad de elementos por página 
+- `categoryId` (query): Filtrar por ID de Categoría 
+- `brandId` (query): Filtrar por ID de Marca 
+- `isActive` (query): Filtrar por estado activo 
 
 **Responses**:
 - `200`: 
   ```json
   {
     "success": true,
-    "data": {
-      "items": [
-        {
-          "_id": "60d5ec49c6d48227b409748c",
-          "name": "Frenos"
-        }
-      ],
-      "total": 1,
-      "page": 1,
-      "limit": 10,
-      "totalPages": 1
-    },
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /inventory/categories/search
+**Summary**: Buscar categorías por nombre
+
+**Parameters**:
+- `q` (query): Término de búsqueda por nombre (Required)
+- `search` (query):  (Required)
+- `page` (query): Número de página 
+- `limit` (query): Cantidad de elementos por página 
+- `categoryId` (query): Filtrar por ID de Categoría 
+- `brandId` (query): Filtrar por ID de Marca 
+- `isActive` (query): Filtrar por estado activo 
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
     "message": "Success"
   }
   ```
@@ -645,32 +628,47 @@ Opción B (por Correo Electrónico):
 ---
 
 ### [GET] /inventory/providers
-**Summary**: Listar todos los proveedores (Paginado)
+**Summary**: Listar todos los proveedores paginados con filtro opcional de búsqueda
 
 **Parameters**:
-- `search` (query): Buscar por nombre o código de proveedor
-- `q` (query): Alias de `search`
-- `page` (query): Número de página (default: 1)
-- `limit` (query): Elementos por página (default: 10)
+- `search` (query): Búsqueda por nombre o código 
+- `q` (query): Alias para término de búsqueda 
+- `page` (query): Número de página 
+- `limit` (query): Cantidad de elementos por página 
+- `categoryId` (query): Filtrar por ID de Categoría 
+- `brandId` (query): Filtrar por ID de Marca 
+- `isActive` (query): Filtrar por estado activo 
 
 **Responses**:
 - `200`: 
   ```json
   {
     "success": true,
-    "data": {
-      "items": [
-        {
-          "_id": "60d5ec49c6d48227b409748d",
-          "name": "AutoZone Proveedores",
-          "providerCode": "PROV-001"
-        }
-      ],
-      "total": 1,
-      "page": 1,
-      "limit": 10,
-      "totalPages": 1
-    },
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /inventory/providers/search
+**Summary**: Buscar proveedores por nombre o código
+
+**Parameters**:
+- `q` (query): Término de búsqueda por nombre o código (Required)
+- `search` (query):  (Required)
+- `page` (query): Número de página 
+- `limit` (query): Cantidad de elementos por página 
+- `categoryId` (query): Filtrar por ID de Categoría 
+- `brandId` (query): Filtrar por ID de Marca 
+- `isActive` (query): Filtrar por estado activo 
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
     "message": "Success"
   }
   ```
@@ -759,37 +757,65 @@ Opción B (por Correo Electrónico):
 ---
 
 ### [GET] /inventory/products
-**Summary**: Listar autopartes con filtros opcionales (Paginado)
+**Summary**: Listar autopartes con filtros opcionales y paginación
 
 **Parameters**:
-- `search` (query): Buscar por término único que coincide en SKU, Nombre o Compatibilidad
-- `q` (query): Alias de `search`
+- `search` (query): Buscar por nombre, SKU o compatibilidad 
+- `q` (query): Alias para término de búsqueda 
 - `categoryId` (query): Filtrar por categoría ID 
 - `brandId` (query): Filtrar por marca ID 
-- `page` (query): Número de página (default: 1)
-- `limit` (query): Elementos por página (default: 10)
+- `page` (query): Número de página 
+- `limit` (query): Cantidad de elementos por página 
+- `isActive` (query): Filtrar por estado activo 
 
 **Responses**:
 - `200`: 
   ```json
   {
     "success": true,
-    "data": {
-      "items": [
-        {
-          "_id": "60d5ec49c6d48227b409748e",
-          "sku": "BAL-001",
-          "name": "Balatas Delanteras",
-          "costPrice": 450,
-          "sellingPrice": 750,
-          "stock": 25
-        }
-      ],
-      "total": 1,
-      "page": 1,
-      "limit": 10,
-      "totalPages": 1
-    },
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /inventory/products/search
+**Summary**: Buscar productos por SKU, nombre o compatibilidad
+
+**Parameters**:
+- `q` (query): Término de búsqueda (Required)
+- `search` (query):  (Required)
+- `page` (query): Número de página 
+- `limit` (query): Cantidad de elementos por página 
+- `categoryId` (query): Filtrar por ID de Categoría 
+- `brandId` (query): Filtrar por ID de Marca 
+- `isActive` (query): Filtrar por estado activo 
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /inventory/products/sku/{sku}
+**Summary**: Obtener detalle de un producto por SKU exacto
+
+**Parameters**:
+- `sku` (path):  (Required)
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
     "message": "Success"
   }
   ```
@@ -860,24 +886,6 @@ Opción B (por Correo Electrónico):
 
 **Parameters**:
 - `id` (path):  (Required)
-
-**Responses**:
-- `200`: 
-  ```json
-  {
-    "success": true,
-    "data": null,
-    "message": "Success"
-  }
-  ```
-
----
-
-### [GET] /inventory/products/sku/{sku}
-**Summary**: Obtener detalle de un producto por SKU
-
-**Parameters**:
-- `sku` (path):  (Required)
 
 **Responses**:
 - `200`: 
@@ -1231,7 +1239,8 @@ Opción B (por Correo Electrónico):
   "notes": "string",
   "duration": 0,
   "assignedMechanic": "string",
-  "branchName": "string"
+  "branchName": "string",
+  "status": "pending"
 }
 ```
 
@@ -1428,7 +1437,8 @@ Opción B (por Correo Electrónico):
   "notes": "string",
   "duration": 0,
   "assignedMechanic": "string",
-  "branchName": "string"
+  "branchName": "string",
+  "status": "pending"
 }
 ```
 
@@ -1615,6 +1625,24 @@ Opción B (por Correo Electrónico):
 
 ---
 
+### [PATCH] /appointments/{id}/check-in
+**Summary**: Recibir vehículo para una cita agendada (Check-in rápido en sucursal)
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
 ## Ordenes de Servicio / Mantenimiento
 
 ### [GET] /maintenance/track/public
@@ -1626,6 +1654,37 @@ Opción B (por Correo Electrónico):
 
 **Responses**:
 - `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [POST] /maintenance/direct-reception
+**Summary**: Recepción directa de vehículo sin cita previa (Walk-in / Mostrador)
+
+**Request Body**:
+```json
+{
+  "customerName": "string",
+  "customerPhone": "string",
+  "customerEmail": "string",
+  "whatsappId": "string",
+  "customerId": "string",
+  "vehicle": null,
+  "serviceRequested": "string",
+  "notes": "string",
+  "laborCost": 0,
+  "assignedMechanic": "string"
+}
+```
+
+**Responses**:
+- `201`: 
   ```json
   {
     "success": true,
@@ -1894,201 +1953,24 @@ Opción B (por Correo Electrónico):
 
 ---
 
-## Servicios Predefinidos (Catálogo del Taller)
-
-> Los servicios predefinidos son plantillas de trabajo (ej. "1er Mantenimiento") que agrupan mano de obra + insumos del inventario. Al agregar un servicio al carrito del POS, sus insumos se expanden automáticamente como ítems de venta. El servicio en sí **no vive en el inventario** — solo los insumos que lo componen.
-
-### [POST] /services
-**Summary**: Crear un servicio predefinido (Admin / Warehouse)
-
-> Un servicio tiene un nombre, precio base de mano de obra y una lista de insumos (productos del inventario). Al venderlo, los insumos se descuentan del stock de la sucursal activa.
-
-**Request Body**:
-```json
-{
-  "name": "1er Mantenimiento",
-  "description": "Mantenimiento preventivo básico. El precio puede ajustarse según el vehículo.",
-  "basePrice": 450.00,
-  "isActive": true,
-  "supplies": [
-    {
-      "productId": "60d5ec49c6d48227b409748e",
-      "quantity": 4
-    },
-    {
-      "productId": "60d5ec49c6d48227b409748f",
-      "quantity": 1
-    }
-  ]
-}
-```
-
-**Campos**:
-| Campo | Tipo | Requerido | Descripción |
-|---|---|---|---|
-| `name` | string | ✅ | Nombre del servicio |
-| `description` | string | ❌ | Descripción breve |
-| `basePrice` | number | ✅ | Precio base de mano de obra (editable en el carrito) |
-| `isActive` | boolean | ❌ | Si aparece disponible en el POS (default: `true`) |
-| `supplies[]` | array | ❌ | Lista de insumos del inventario que se consumen |
-| `supplies[].productId` | string | ✅ | ID del producto/insumo del inventario |
-| `supplies[].quantity` | number | ✅ | Cantidad a descontar del inventario al vender |
-
-**Responses**:
-- `201`: Servicio creado exitosamente.
-  ```json
-  {
-    "success": true,
-    "data": {
-      "_id": "60d5ec49c6d48227b409749a",
-      "name": "1er Mantenimiento",
-      "description": "Mantenimiento preventivo básico.",
-      "basePrice": 450.00,
-      "isActive": true,
-      "supplies": [
-        {
-          "product": { "_id": "...", "name": "Aceite Motor 5W-30", "sku": "ACE-001" },
-          "quantity": 4
-        },
-        {
-          "product": { "_id": "...", "name": "Filtro de Aceite", "sku": "FIL-001" },
-          "quantity": 1
-        }
-      ]
-    },
-    "message": "Servicio creado exitosamente."
-  }
-  ```
-
----
-
-### [GET] /services
-**Summary**: Listar todos los servicios predefinidos (Paginado)
-
-**Parameters**:
-- `isActive` (query): Filtrar solo activos (`true`/`false`). Por defecto devuelve todos.
-- `search` (query): Buscar por nombre del servicio.
-- `q` (query): Alias de `search`.
-- `page` (query): Número de página (default: 1)
-- `limit` (query): Elementos por página (default: 10)
-
-**Responses**:
-- `200`: Lista de servicios paginados.
-  ```json
-  {
-    "success": true,
-    "data": {
-      "items": [
-        {
-          "_id": "60d5ec49c6d48227b409749a",
-          "name": "1er Mantenimiento",
-          "description": "Mantenimiento preventivo básico.",
-          "basePrice": 450.00,
-          "isActive": true,
-          "supplies": [
-            {
-              "product": { "_id": "...", "name": "Aceite Motor 5W-30", "sku": "ACE-001", "sellingPrice": 120 },
-              "quantity": 4
-            }
-          ]
-        }
-      ],
-      "total": 1,
-      "page": 1,
-      "limit": 10,
-      "totalPages": 1
-    },
-    "message": "Success"
-  }
-  ```
-
----
-
-### [GET] /services/{id}
-**Summary**: Obtener detalle de un servicio por ID
-
-**Parameters**:
-- `id` (path): ID del servicio (Required)
-
-**Responses**:
-- `200`: Detalle del servicio con insumos populados.
-
----
-
-### [PATCH] /services/{id}
-**Summary**: Actualizar un servicio predefinido (Admin / Warehouse)
-
-**Parameters**:
-- `id` (path): ID del servicio (Required)
-
-**Request Body**:
-```json
-{
-  "name": "string",
-  "description": "string",
-  "basePrice": 0,
-  "isActive": true,
-  "supplies": [
-    {
-      "productId": "string",
-      "quantity": 0
-    }
-  ]
-}
-```
-> **Nota**: `supplies` reemplaza **completamente** la lista de insumos si se incluye.
-
-**Responses**:
-- `200`: Servicio actualizado correctamente.
-
----
-
-### [DELETE] /services/{id}
-**Summary**: Eliminar un servicio predefinido (Solo Admin)
-
-**Parameters**:
-- `id` (path): ID del servicio (Required)
-
-**Responses**:
-- `200`: Servicio eliminado.
-
----
-
 ## Ventas (POS)
 
-> ### 🔧 Flujo del POS con Servicios
-> 
-> 1. El vendedor abre el POS con la sucursal activa (header `x-branch-id`).
-> 2. Puede agregar al carrito:
->    - **Productos** del inventario (`productId`)
->    - **Servicios** predefinidos (`serviceId`) → el backend los expande a insumos + mano de obra
-> 3. Cualquier ítem en el carrito puede tener su precio editado manualmente mediante el campo `unitPrice`. Si se envía, sobreescribe el precio de catálogo.
-> 4. Al confirmar la venta, **todos los insumos** (productos + insumos de servicios) se descuentan del stock de la sucursal activa.
-
 ### [POST] /sales
-**Summary**: Registrar una venta desde el POS (Productos, Servicios o mixto)
-
-**Headers**:
-- `x-branch-id`: ID de la sucursal activa (Obligatorio)
+**Summary**: Registrar una venta (Pago en efectivo o con tarjeta Mercado Pago Point)
 
 **Request Body**:
 ```json
 {
-  "customerId": "60d5ec49c6d48227b409748b",
   "quoteId": "string",
+  "customerId": "string",
   "items": [
     {
       "type": "product",
-      "productId": "60d5ec49c6d48227b409748e",
-      "quantity": 2,
-      "unitPrice": 150.00,
-      "discount": 0
-    },
-    {
-      "type": "service",
-      "serviceId": "60d5ec49c6d48227b409749a",
-      "quantity": 1,
-      "unitPrice": 600.00,
+      "productId": "string",
+      "serviceId": "string",
+      "name": "string",
+      "quantity": 0,
+      "unitPrice": 0,
       "discount": 0
     }
   ],
@@ -2098,106 +1980,35 @@ Opción B (por Correo Electrónico):
 }
 ```
 
-**Campos clave**:
-| Campo | Tipo | Requerido | Descripción |
-|---|---|---|---|
-| `customerId` | string | ❌ | ID del cliente (Opcional para público en general) |
-| `quoteId` | string | ❌ | ID de cotización origen (convierte la cotización) |
-| `items` | array | ✅ | Lista de ítems del carrito |
-| `items[].type` | string | ✅ | `"product"` o `"service"` |
-| `items[].productId` | string | ✅ si `type=product` | ID del producto del inventario |
-| `items[].serviceId` | string | ❌ | ID del servicio predefinido (opcional si es servicio temporal) |
-| `items[].name` | string | ❌ | Nombre del ítem/servicio. **Requerido** si `type=service` y no se incluye `serviceId`. |
-| `items[].quantity` | number | ✅ | Cantidad |
-| `items[].unitPrice` | number | ❌ | Precio unitario. **Requerido** si es un servicio temporal sin `serviceId`. Si es de catálogo y se omite, usa el precio predefinido. |
-| `items[].discount` | number | ❌ | Descuento unitario |
-| `globalDiscount` | number | ❌ | Descuento global sobre el total |
-| `paymentMethod` | string | ✅ | `cash` \| `card` \| `transfer` |
-| `paymentReference` | string | ❌ | Referencia de pago (ej. Mercado Pago ID) |
-
-> **Comportamiento de los servicios (Predefinidos y Temporales)**:
-> - **Servicios predefinidos (con `serviceId`)**: Utilizan la plantilla del catálogo para obtener el nombre y precio base (si no se envía `unitPrice` personalizado).
-> - **Servicios temporales (sin `serviceId`)**: Permiten agregar servicios al vuelo desde el POS sin registrarlos en el catálogo. Se debe enviar `type: "service"`, omitir `serviceId`, y enviar `name` (ej. `"Mantenimiento Express"`) y `unitPrice` (ej. `350.00`).
-> - **Insumos consumidos**: Si un servicio (predefinido o temporal) consume productos del inventario, el Frontend debe enviarlos como ítems adicionales de tipo `"product"` (`productId`, `quantity`, `unitPrice`) dentro del arreglo `items`. De esta forma, el stock se valida y se descuenta del inventario al cobrar la venta.
-> 
-> ⚠️ **ATENCIÓN FRONTEND**: Cuando envíen los insumos al carrito, **asegúrense de extraer y enviar el campo `productId`** en el objeto. Un error muy común es enviar `{ "type": "product", "quantity": 1 }` omitiendo el `productId` porque el objeto original del insumo venía anidado y su ID estaba en `_id`. **Si falta el `productId` en ítems de tipo producto, el API rechazará la venta con error 400**.
-
 **Responses**:
 - `201`: Venta registrada exitosamente.
   ```json
   {
     "success": true,
-    "data": {
-      "_id": "...",
-      "folio": "SALE-20260729-4823",
-      "customer": { "_id": "...", "name": "Juan Pérez" },
-      "items": [
-        {
-          "type": "product",
-          "product": { "_id": "...", "name": "Filtro de aire", "sku": "FIL-002" },
-          "name": "Filtro de aire",
-          "sku": "FIL-002",
-          "quantity": 2,
-          "priceSnapshot": 150.00,
-          "discount": 0,
-          "origin": "direct"
-        },
-        {
-          "type": "service",
-          "serviceId": "...",
-          "name": "1er Mantenimiento",
-          "quantity": 1,
-          "priceSnapshot": 600.00,
-          "discount": 0,
-          "origin": "service",
-          "suppliesConsumed": [
-            { "product": "...", "name": "Aceite Motor 5W-30", "quantity": 4 },
-            { "product": "...", "name": "Filtro de Aceite", "quantity": 1 }
-          ]
-        }
-      ],
-      "subtotal": 900.00,
-      "discount": 0,
-      "total": 900.00,
-      "paymentMethod": "cash",
-      "seller": { "_id": "...", "name": "Alexis Rojas" },
-      "branch": { "_id": "...", "name": "Sucursal Caucel" },
-      "isCancelled": false,
-      "createdAt": "2026-07-29T17:00:00.000Z"
-    },
+    "data": null,
     "message": "Venta registrada exitosamente."
   }
   ```
-- `400`: Stock insuficiente, cliente no encontrado, cotización ya convertida/vencida.
 
 ---
 
 ### [GET] /sales
-**Summary**: Listar todas las ventas con filtros
+**Summary**: Listar todas las ventas
 
 **Parameters**:
-- `customerId` (query): Filtrar por ID del cliente
-- `isCancelled` (query): Filtrar por estado de cancelación (`true`/`false`)
-- `hasService` (query): Filtrar ventas que incluyen al menos un servicio (`true`/`false`)
-- `startDate` (query): Fecha inicio (YYYY-MM-DD)
-- `endDate` (query): Fecha fin (YYYY-MM-DD)
+- `customerId` (query): Filtrar por ID del cliente 
+- `isCancelled` (query): Filtrar por estado de cancelación 
+- `hasService` (query): Filtrar por si incluye servicios 
+- `startDate` (query): Fecha inicio (YYYY-MM-DD) en zona local del cliente 
+- `endDate` (query): Fecha fin (YYYY-MM-DD) en zona local del cliente 
+- `utcOffsetMinutes` (query): Offset UTC del cliente en minutos (ej: 300 para UTC-5). Equivale a Date.getTimezoneOffset() 
 
 **Responses**:
 - `200`: 
   ```json
   {
     "success": true,
-    "data": [
-      {
-        "_id": "...",
-        "folio": "SALE-20260729-4823",
-        "customer": { "_id": "...", "name": "Juan Pérez" },
-        "total": 900.00,
-        "paymentMethod": "cash",
-        "isCancelled": false,
-        "createdAt": "2026-07-29T17:00:00.000Z"
-      }
-    ],
+    "data": null,
     "message": "Success"
   }
   ```
@@ -2218,7 +2029,7 @@ Opción B (por Correo Electrónico):
 ```
 
 **Responses**:
-- `200`: Venta cancelada y stock devuelto exitosamente. Los insumos de servicios también se regresan al stock.
+- `200`: Venta cancelada y stock devuelto exitosamente.
   ```json
   {
     "success": true,
@@ -2240,32 +2051,7 @@ Opción B (por Correo Electrónico):
   ```json
   {
     "success": true,
-    "data": {
-      "_id": "6a73a8deb0611418866b8c78",
-      "folio": "SALE-20260805-4821",
-      "items": [
-        {
-          "type": "service",
-          "name": "1er Mantenimiento",
-          "priceSnapshot": 450,
-          "serviceId": {
-            "_id": "60d5ec49c6d48227b409749a",
-            "name": "1er Mantenimiento",
-            "supplies": [
-              {
-                "product": {
-                  "_id": "6a5faddc5787d0109bb0b00e",
-                  "sku": "ACE-001",
-                  "name": "Aceite Motor 5W-30",
-                  "sellingPrice": 120
-                },
-                "quantity": 8
-              }
-            ]
-          }
-        }
-      ]
-    },
+    "data": null,
     "message": "Success"
   }
   ```
@@ -2277,6 +2063,157 @@ Opción B (por Correo Electrónico):
 
 **Parameters**:
 - `query` (path):  (Required)
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+## Servicios Predefinidos
+
+### [POST] /services
+**Summary**: No summary
+
+**Request Body**:
+```json
+{
+  "name": "string",
+  "description": "string",
+  "basePrice": 0,
+  "isActive": true,
+  "supplies": [
+    {
+      "productId": "string",
+      "quantity": 0
+    }
+  ]
+}
+```
+
+**Responses**:
+- `201`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /services
+**Summary**: Listar todos los servicios predefinidos paginados
+
+**Parameters**:
+- `isActive` (query):  
+- `search` (query): Búsqueda por nombre de servicio 
+- `q` (query): Alias para término de búsqueda 
+- `page` (query): Número de página 
+- `limit` (query): Cantidad de elementos por página 
+- `categoryId` (query): Filtrar por ID de Categoría 
+- `brandId` (query): Filtrar por ID de Marca 
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /services/search
+**Summary**: Buscar servicios por nombre
+
+**Parameters**:
+- `q` (query): Término de búsqueda por nombre (Required)
+- `isActive` (query):  
+- `page` (query): Número de página 
+- `limit` (query): Cantidad de elementos por página 
+- `search` (query): Término de búsqueda 
+- `categoryId` (query): Filtrar por ID de Categoría 
+- `brandId` (query): Filtrar por ID de Marca 
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /services/{id}
+**Summary**: No summary
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [PATCH] /services/{id}
+**Summary**: No summary
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Request Body**:
+```json
+{
+  "name": "string",
+  "description": "string",
+  "basePrice": 0,
+  "isActive": true,
+  "supplies": [
+    {
+      "productId": "string",
+      "quantity": 0
+    }
+  ]
+}
+```
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [DELETE] /services/{id}
+**Summary**: No summary
+
+**Parameters**:
+- `id` (path):  (Required)
 
 **Responses**:
 - `200`: 
@@ -2506,42 +2443,44 @@ Opción B (por Correo Electrónico):
 
 ---
 
-## Asistencia y Control de Horarios (Attendance)
+### [POST] /system/migration/usernames
+**Summary**: Migra los usuarios existentes que no tengan un nombre de usuario asignado. Genera un usuario único basado en su nombre.
+
+**Responses**:
+- `200`: Migración de nombres de usuario ejecutada exitosamente.
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Migración de nombres de usuario ejecutada exitosamente."
+  }
+  ```
+
+---
+
+## Asistencia & Control de Horarios
 
 ### [POST] /attendance/clock-in
 **Summary**: Registrar entrada (Clock In) para el turno del usuario
 
-**Headers**:
-- `x-branch-id`: ID de la sucursal activa (Obligatorio)
+**Parameters**:
+- `x-branch-id` (header): ID de la sucursal activa (Required)
 
 **Request Body**:
 ```json
 {
-  "note": "Llegada a tiempo"
+  "note": "string",
+  "userId": "string"
 }
 ```
-> **Nota**: `note` es opcional.
 
 **Responses**:
 - `201`: Entrada registrada exitosamente.
   ```json
   {
     "success": true,
-    "message": "Entrada registrada exitosamente",
-    "data": {
-      "_id": "66a7b123c9e48227b409749a",
-      "user": "60d5ec49c6d48227b409748b",
-      "branch": "60d5ec49c6d48227b409748c",
-      "date": "2026-07-29",
-      "clockIn": "2026-07-29T09:00:00.000Z",
-      "clockOut": null,
-      "breaks": [],
-      "status": "working",
-      "totalWorkMinutes": 0,
-      "totalBreakMinutes": 0,
-      "netWorkMinutes": 0,
-      "clockInNote": "Llegada a tiempo"
-    }
+    "data": null,
+    "message": "Entrada registrada exitosamente."
   }
   ```
 
@@ -2553,40 +2492,18 @@ Opción B (por Correo Electrónico):
 **Request Body**:
 ```json
 {
-  "note": "Fin de turno laboral"
+  "note": "string",
+  "userId": "string"
 }
 ```
-> **Nota**: `note` es opcional.
 
 **Responses**:
 - `200`: Salida registrada exitosamente.
   ```json
   {
     "success": true,
-    "message": "Salida registrada exitosamente",
-    "data": {
-      "_id": "66a7b123c9e48227b409749a",
-      "user": "60d5ec49c6d48227b409748b",
-      "branch": "60d5ec49c6d48227b409748c",
-      "date": "2026-07-29",
-      "clockIn": "2026-07-29T09:00:00.000Z",
-      "clockOut": "2026-07-29T18:00:00.000Z",
-      "breaks": [
-        {
-          "_id": "66a7b200c9e48227b409749b",
-          "startTime": "2026-07-29T14:00:00.000Z",
-          "endTime": "2026-07-29T15:00:00.000Z",
-          "durationMinutes": 60,
-          "note": "Hora de comida"
-        }
-      ],
-      "status": "completed",
-      "totalWorkMinutes": 540,
-      "totalBreakMinutes": 60,
-      "netWorkMinutes": 480,
-      "clockInNote": "Llegada a tiempo",
-      "clockOutNote": "Fin de turno laboral"
-    }
+    "data": null,
+    "message": "Salida registrada exitosamente."
   }
   ```
 
@@ -2598,29 +2515,18 @@ Opción B (por Correo Electrónico):
 **Request Body**:
 ```json
 {
-  "note": "Hora de comida"
+  "note": "string",
+  "userId": "string"
 }
 ```
-> **Nota**: `note` es opcional.
 
 **Responses**:
-- `200`: Inicio de descanso registrado exitosamente.
+- `200`: Inicio de descanso registrado.
   ```json
   {
     "success": true,
-    "message": "Inicio de descanso registrado exitosamente",
-    "data": {
-      "_id": "66a7b123c9e48227b409749a",
-      "status": "on_break",
-      "breaks": [
-        {
-          "startTime": "2026-07-29T14:00:00.000Z",
-          "endTime": null,
-          "durationMinutes": 0,
-          "note": "Hora de comida"
-        }
-      ]
-    }
+    "data": null,
+    "message": "Inicio de descanso registrado."
   }
   ```
 
@@ -2630,57 +2536,31 @@ Opción B (por Correo Electrónico):
 **Summary**: Finalizar descanso / hora de comida actual
 
 **Responses**:
-- `200`: Fin de descanso registrado exitosamente.
+- `200`: Fin de descanso registrado.
   ```json
   {
     "success": true,
-    "message": "Fin de descanso registrado exitosamente",
-    "data": {
-      "_id": "66a7b123c9e48227b409749a",
-      "status": "working",
-      "totalBreakMinutes": 60,
-      "breaks": [
-        {
-          "startTime": "2026-07-29T14:00:00.000Z",
-          "endTime": "2026-07-29T15:00:00.000Z",
-          "durationMinutes": 60,
-          "note": "Hora de comida"
-        }
-      ]
-    }
+    "data": null,
+    "message": "Fin de descanso registrado."
   }
   ```
 
 ---
 
 ### [GET] /attendance/today
-**Summary**: Obtener el estado de asistencia actual del usuario o sucursal para hoy (si está trabajando, en receso o fuera de turno)
+**Summary**: Obtener el estado de asistencia actual del usuario o sucursal para hoy
 
-**Query Parameters**:
-- `userId`: (Opcional) ID de un usuario específico.
-- `branchId`: (Opcional) ID de una sucursal para obtener la asistencia de todos sus usuarios.
+**Parameters**:
+- `userId` (query): Filtrar por usuario específico 
+- `branchId` (query): Filtrar por sucursal para obtener el estado de todos sus empleados 
 
 **Responses**:
-- `200`: Estado de asistencia de hoy.
+- `200`: 
   ```json
   {
     "success": true,
-    "data": {
-      "hasActiveShift": true,
-      "status": "on_break",
-      "attendance": { ... },
-      "currentWorkMinutes": 300,
-      "currentWorkHours": 5,
-      "totalBreakMinutes": 30,
-      "totalBreakHours": 0.5,
-      "netWorkMinutes": 270,
-      "netWorkHours": 4.5,
-      "activeBreak": {
-        "startTime": "2026-07-29T14:00:00.000Z",
-        "durationMinutes": 30,
-        "note": "Hora de comida"
-      }
-    }
+    "data": null,
+    "message": "Success"
   }
   ```
 
@@ -2689,52 +2569,17 @@ Opción B (por Correo Electrónico):
 ### [GET] /attendance/branch/today
 **Summary**: Obtener el estado de asistencia de todos los usuarios asignados a una sucursal para hoy
 
-**Headers**:
-- `x-branch-id`: ID de la sucursal activa (Opcional si se envía query param)
-
-**Query Parameters**:
-- `branchId`: (Opcional) ID de la sucursal a consultar (si no se envía header `x-branch-id`).
+**Parameters**:
+- `branchId` (query): ID de la sucursal (opcional si se envía el header x-branch-id) 
+- `x-branch-id` (header): ID de la sucursal activa (Required)
 
 **Responses**:
-- `200`: Estado de asistencia de la sucursal para el día de hoy.
+- `200`: 
   ```json
   {
     "success": true,
-    "data": {
-      "branchId": "60d5ec49c6d48227b409748c",
-      "date": "2026-08-04",
-      "totalAssignedUsers": 3,
-      "summary": {
-        "working": 1,
-        "onBreak": 1,
-        "completed": 0,
-        "offShift": 1
-      },
-      "users": [
-        {
-          "user": {
-            "_id": "60d5ec49c6d48227b409748b",
-            "name": "Alexis Manuel",
-            "email": "alexis@ferventa.com",
-            "username": "alexis",
-            "role": {
-              "_id": "60d5ec49c6d48227b4097480",
-              "name": "admin"
-            }
-          },
-          "hasActiveShift": true,
-          "status": "working",
-          "attendance": { ... },
-          "currentWorkMinutes": 120,
-          "currentWorkHours": 2,
-          "totalBreakMinutes": 0,
-          "totalBreakHours": 0,
-          "netWorkMinutes": 120,
-          "netWorkHours": 2,
-          "activeBreak": null
-        }
-      ]
-    }
+    "data": null,
+    "message": "Success"
   }
   ```
 
@@ -2743,107 +2588,307 @@ Opción B (por Correo Electrónico):
 ### [GET] /attendance/my-records
 **Summary**: Obtener mi historial de registros de asistencia
 
-**Query Parameters**:
-- `startDate`: Fecha inicio (YYYY-MM-DD) [Opcional]
-- `endDate`: Fecha fin (YYYY-MM-DD) [Opcional]
+**Parameters**:
+- `startDate` (query):  
+- `endDate` (query):  
 
 **Responses**:
-- `200`: Lista de registros personales de asistencia.
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
 
 ---
 
 ### [GET] /attendance/admin/records
 **Summary**: Listar todos los registros de asistencia con filtros (Solo Admin)
 
-**Query Parameters**:
-- `branchId`: ID de la sucursal [Opcional]
-- `userId`: ID del usuario [Opcional]
-- `startDate`: Fecha inicio (YYYY-MM-DD) [Opcional]
-- `endDate`: Fecha fin (YYYY-MM-DD) [Opcional]
-- `status`: Estatus (`working`, `on_break`, `completed`) [Opcional]
+**Parameters**:
+- `branchId` (query): ID de la sucursal a filtrar 
+- `userId` (query): ID del usuario a filtrar 
+- `startDate` (query): Fecha inicio (YYYY-MM-DD) 
+- `endDate` (query): Fecha fin (YYYY-MM-DD) 
+- `status` (query): Estatus del registro 
 
 **Responses**:
-- `200`: Lista filtrada de registros con datos de usuario y sucursal poblados.
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
 
 ---
 
 ### [GET] /attendance/admin/summary
-**Summary**: Obtener resumen de horas trabajadas semanal, quincenal, mensual o personalizado (Solo Admin)
+**Summary**: Obtener resumen de horas trabajadas (semanal, quincenal, mensual) (Solo Admin)
 
-**Query Parameters**:
-- `branchId`: ID de la sucursal [Opcional]
-- `period`: `weekly`, `biweekly`, `monthly`, `custom` [Default: `weekly`]
-- `startDate`: Fecha inicio en caso de `period=custom` (YYYY-MM-DD) [Opcional]
-- `endDate`: Fecha fin en caso de `period=custom` (YYYY-MM-DD) [Opcional]
+**Parameters**:
+- `branchId` (query): ID de la sucursal a filtrar 
+- `period` (query): Período del resumen 
+- `startDate` (query): Fecha inicio en caso de period=custom (YYYY-MM-DD) 
+- `endDate` (query): Fecha fin en caso de period=custom (YYYY-MM-DD) 
 
 **Responses**:
-- `200`: Resumen del período por usuario y sucursal.
+- `200`: 
   ```json
   {
     "success": true,
-    "data": {
-      "period": "weekly",
-      "range": {
-        "startDate": "2026-07-22",
-        "endDate": "2026-07-29"
-      },
-      "usersSummary": [
-        {
-          "userId": "60d5ec49c6d48227b409748b",
-          "userName": "Alexis Rojas",
-          "userEmail": "alexis@ferventa.com",
-          "branchId": "60d5ec49c6d48227b409748c",
-          "branchName": "Sucursal Matriz",
-          "totalShifts": 5,
-          "completedShifts": 5,
-          "totalWorkMinutes": 2700,
-          "totalWorkHours": 45,
-          "totalBreakMinutes": 300,
-          "totalBreakHours": 5,
-          "netWorkMinutes": 2400,
-          "netWorkHours": 40
-        }
-      ]
-    }
+    "data": null,
+    "message": "Success"
   }
   ```
 
 ---
 
-### [GET] /attendance/admin/user-breakdown/:userId
-**Summary**: Obtener desglose detallado de asistencia y descansos para un usuario específico (Solo Admin)
+### [GET] /attendance/admin/user-breakdown/{userId}
+**Summary**: Obtener desglose detallado de asistencia y descansos para un usuario (Solo Admin)
 
-**Query Parameters**:
-- `startDate`: Fecha inicio (YYYY-MM-DD) [Opcional]
-- `endDate`: Fecha fin (YYYY-MM-DD) [Opcional]
+**Parameters**:
+- `userId` (path):  (Required)
+- `startDate` (query):  
+- `endDate` (query):  
 
 **Responses**:
-- `200`: Desglose detallado de turnos, descansos e indicadores totales acumulados.
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
 
 ---
 
-### [PATCH] /attendance/admin/:id
+### [PATCH] /attendance/admin/{id}
 **Summary**: Modificar/Ajustar manualmente un registro de asistencia (Solo Admin)
+
+**Parameters**:
+- `id` (path):  (Required)
 
 **Request Body**:
 ```json
 {
-  "clockIn": "2026-07-29T08:30:00.000Z",
-  "clockOut": "2026-07-29T17:30:00.000Z",
-  "adminNotes": "Ajuste manual de hora de llegada"
+  "clockIn": "string",
+  "clockOut": "string",
+  "adminNotes": "string"
 }
 ```
 
 **Responses**:
-- `200`: Registro de asistencia actualizado exitosamente.
+- `200`: 
   ```json
   {
     "success": true,
-    "message": "Registro de asistencia actualizado exitosamente",
-    "data": { ... }
+    "data": null,
+    "message": "Success"
   }
   ```
 
 ---
 
+## Pedidos Especiales (Orders)
+
+### [POST] /orders
+**Summary**: Levantar un nuevo pedido especial con anticipo mínimo del 50%
+
+**Request Body**:
+```json
+{
+  "customerId": "string",
+  "customerName": "string",
+  "customerPhone": "string",
+  "customerEmail": "string",
+  "itemDescription": "string",
+  "costPrice": 0,
+  "sellingPrice": 0,
+  "advancePayment": 0,
+  "paymentMethod": "cash",
+  "paymentReference": "string",
+  "notes": "string",
+  "estimatedArrivalDate": "string"
+}
+```
+
+**Responses**:
+- `201`: Pedido creado exitosamente con anticipo registrado.
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Pedido creado exitosamente con anticipo registrado."
+  }
+  ```
+
+---
+
+### [GET] /orders
+**Summary**: Listar todos los pedidos con filtros
+
+**Parameters**:
+- `search` (query): Buscar por folio, cliente, teléfono o descripción de pieza 
+- `status` (query): Filtrar por estado 
+- `isFullyPaid` (query): Filtrar si está liquidado (true/false) 
+- `startDate` (query): Fecha inicio (YYYY-MM-DD) 
+- `endDate` (query): Fecha fin (YYYY-MM-DD) 
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /orders/summary
+**Summary**: Obtener métricas y resumen de pedidos por estatus y saldos pendientes
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /orders/{id}
+**Summary**: Obtener detalle de un pedido por ID
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [PATCH] /orders/{id}
+**Summary**: Actualizar datos generales o precios del pedido
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Request Body**:
+```json
+{
+  "itemDescription": "string",
+  "costPrice": 0,
+  "sellingPrice": 0,
+  "notes": "string",
+  "estimatedArrivalDate": "string"
+}
+```
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [PATCH] /orders/{id}/status
+**Summary**: Actualizar el estado del pedido (Pedido Levantado -> Pedido -> En tránsito -> En Sucursal -> Pendiente de entrega -> Entregado)
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Request Body**:
+```json
+{
+  "status": "order_placed",
+  "notes": "string"
+}
+```
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [POST] /orders/{id}/payments
+**Summary**: Registrar un abono o liquidación al saldo del pedido
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Request Body**:
+```json
+{
+  "amount": 0,
+  "paymentMethod": "cash",
+  "paymentReference": "string",
+  "notes": "string"
+}
+```
+
+**Responses**:
+- `201`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [PATCH] /orders/{id}/cancel
+**Summary**: Cancelar un pedido especificando el motivo
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Request Body**:
+```json
+{
+  "reason": "string"
+}
+```
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
 

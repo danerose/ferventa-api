@@ -187,8 +187,10 @@ export class AppointmentsService {
       }, branchId);
     }
 
+    const initialStatus = createAppointmentDto.status || 'pending';
     const appointment = new this.appointmentModel({
       ...createAppointmentDto,
+      status: initialStatus,
       branch: branchId,
       customer: customerId as any,
       scheduledAt: scheduledAtDate,
@@ -196,7 +198,7 @@ export class AppointmentsService {
 
     const savedAppt = await appointment.save();
 
-    // Automatically register a linked maintenance order in awaiting_appointment status (limbo)
+    // Automatically register a linked maintenance order
     try {
       await this.maintenanceService.createFromAppointment(
         (savedAppt._id as any).toString(),
@@ -205,6 +207,9 @@ export class AppointmentsService {
         createAppointmentDto.serviceRequested,
         branchId,
       );
+      if (initialStatus === 'completed') {
+        await this.maintenanceService.activateFromAppointment((savedAppt._id as any).toString(), branchId);
+      }
     } catch (err) {
       console.error('Error creating maintenance automatically from appointment:', err);
       // We do not throw to avoid crashing the appointment creation if maintenance DB logic fails
@@ -535,5 +540,54 @@ export class AppointmentsService {
     await this.whatsAppService.sendMessage(appointment.customerPhone, message);
 
     return saved.populate('customer');
+  }
+
+  /**
+   * Check-in / Receive vehicle for an existing appointment:
+   * Marks appointment as completed and activates the linked maintenance order to 'not_started'.
+   * Returns both the updated appointment and the activated maintenance order.
+   */
+  async checkIn(id: string, branchId: string): Promise<{ appointment: AppointmentDocument; maintenance: any }> {
+    const appointment = await this.findById(id, branchId);
+    appointment.status = 'completed';
+    const saved = await appointment.save();
+
+    let maintenance = await this.maintenanceService.activateFromAppointment(id, branchId);
+
+    // If no maintenance existed, auto-create one
+    if (!maintenance) {
+      const serialNumberLastFour = appointment.vehicle.serialNumberLastFour.toUpperCase().trim();
+      let vehicle = await this.vehiclesService.findBySerialNumberLastFour(serialNumberLastFour, branchId).catch(() => null);
+      const customerId = (appointment.customer as any)?._id?.toString() || (appointment.customer as any)?.toString();
+
+      if (!vehicle && customerId) {
+        vehicle = await this.vehiclesService.create(
+          {
+            customerId,
+            brand: appointment.vehicle.brand,
+            model: appointment.vehicle.model,
+            year: appointment.vehicle.year,
+            serialNumberLastFour,
+          },
+          branchId,
+        ).catch(() => null);
+      }
+
+      if (vehicle && customerId) {
+        await this.maintenanceService.createFromAppointment(
+          (saved._id as any).toString(),
+          customerId,
+          (vehicle._id as any).toString(),
+          appointment.serviceRequested,
+          branchId,
+        );
+        maintenance = await this.maintenanceService.activateFromAppointment((saved._id as any).toString(), branchId);
+      }
+    }
+
+    return {
+      appointment: await saved.populate('customer'),
+      maintenance,
+    };
   }
 }

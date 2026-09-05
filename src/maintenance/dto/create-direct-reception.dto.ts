@@ -4,7 +4,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsDateString,
   ValidateNested,
   IsNumber,
   Min,
@@ -13,95 +12,85 @@ import {
 import { Type, Transform } from 'class-transformer';
 import { i18nValidationMessage } from 'nestjs-i18n';
 
-export class AppointmentVehicleDto {
-  @ApiProperty({ example: 'Ford', description: 'Marca del auto' })
+export class DirectReceptionVehicleDto {
+  @ApiProperty({ example: 'Ford', description: 'Marca del vehículo' })
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   brand: string;
 
-  @ApiProperty({ example: 'Fiesta', description: 'Modelo' })
+  @ApiProperty({ example: 'Fiesta', description: 'Modelo del vehículo' })
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   model: string;
 
-  @ApiProperty({ example: 2015, description: 'Año' })
+  @ApiProperty({ example: 2018, description: 'Año del vehículo' })
   @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   year: number;
 
-  @ApiProperty({ example: '1234', description: 'Últimos 4 dígitos del número de serie' })
+  @ApiProperty({ example: '1234', description: 'Últimos 4 dígitos del número de serie o identificador' })
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   serialNumberLastFour: string;
+
+  @ApiPropertyOptional({ example: 'Rojo', description: 'Color del vehículo' })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  color?: string;
 }
 
-export class CreateAppointmentDto {
-  @ApiProperty({ example: 'Carlos Sánchez', description: 'Nombre completo' })
+export class CreateDirectReceptionDto {
+  @ApiProperty({ example: 'Carlos Sánchez', description: 'Nombre del cliente' })
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   customerName: string;
 
-  @ApiProperty({ example: '8119876543', description: 'Teléfono' })
+  @ApiProperty({ example: '8119876543', description: 'Teléfono de contacto' })
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   customerPhone: string;
 
   @ApiPropertyOptional({ example: 'carlos@example.com', description: 'Correo electrónico' })
-  @Transform(({ value }) => value === '' ? undefined : value)
+  @Transform(({ value }) => (value === '' ? undefined : value))
   @IsEmail({}, { message: i18nValidationMessage('validation.isEmail') })
   @IsOptional()
   customerEmail?: string;
 
-  @ApiPropertyOptional({ example: 'whatsapp_carlos', description: 'WhatsApp ID' })
+  @ApiPropertyOptional({ example: 'whatsapp_carlos', description: 'WhatsApp ID si aplica' })
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsOptional()
   whatsappId?: string;
 
-  @ApiPropertyOptional({ example: '60d5ec49c6d48227b409748b', description: 'ID del cliente si ya existe' })
-  @Transform(({ value }) => value === '' ? undefined : value)
+  @ApiPropertyOptional({ example: '60d5ec49c6d48227b409748b', description: 'ID del cliente si ya existe en sistema' })
+  @Transform(({ value }) => (value === '' ? undefined : value))
   @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
   @IsOptional()
   customerId?: string;
 
-  @ApiProperty({ type: AppointmentVehicleDto, description: 'Datos del vehículo' })
+  @ApiProperty({ type: DirectReceptionVehicleDto, description: 'Datos del vehículo recibido' })
   @ValidateNested()
-  @Type(() => AppointmentVehicleDto)
+  @Type(() => DirectReceptionVehicleDto)
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
-  vehicle: AppointmentVehicleDto;
+  vehicle: DirectReceptionVehicleDto;
 
-  @ApiProperty({ example: 'Cambio de aceite y filtro', description: 'Servicio solicitado' })
+  @ApiProperty({ example: 'Revisión de frenos y cambio de balatas', description: 'Motivo de ingreso o servicio solicitado' })
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   serviceRequested: string;
 
-  @ApiProperty({ example: '2026-07-10T10:00:00Z', description: 'Fecha y hora programada' })
-  @IsDateString({}, { message: i18nValidationMessage('validation.isDateString') })
-  @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
-  scheduledAt: string;
-
-  @ApiPropertyOptional({ example: 'El cliente prefiere aceite sintético', description: 'Notas opcionales' })
+  @ApiPropertyOptional({ example: 'El cliente reporta rechinido al frenar', description: 'Notas u observaciones de recepción' })
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsOptional()
   notes?: string;
 
-  @ApiPropertyOptional({ example: 15, description: 'Duración estimada en minutos (default: 15)' })
+  @ApiPropertyOptional({ example: 450.0, description: 'Costo estimado inicial de mano de obra' })
   @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })
-  @Min(1, { message: i18nValidationMessage('validation.min') })
+  @Min(0, { message: i18nValidationMessage('validation.min') })
   @IsOptional()
-  duration?: number;
+  laborCost?: number;
 
-  @ApiPropertyOptional({ example: 'Roberto Sánchez', description: 'Mecánico asignado' })
+  @ApiPropertyOptional({ example: 'Roberto Sánchez', description: 'Mecánico asignado (opcional)' })
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsOptional()
   assignedMechanic?: string;
-
-  @ApiPropertyOptional({ example: 'Sucursal Centro', description: 'Nombre de la sucursal' })
-  @IsString({ message: i18nValidationMessage('validation.isString') })
-  @IsOptional()
-  branchName?: string;
-
-  @ApiPropertyOptional({ example: 'approved', enum: ['pending', 'approved', 'completed'], description: 'Estado inicial de la cita (Solo Staff)' })
-  @IsString({ message: i18nValidationMessage('validation.isString') })
-  @IsOptional()
-  status?: string;
 }

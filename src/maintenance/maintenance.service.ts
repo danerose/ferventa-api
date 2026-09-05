@@ -11,6 +11,8 @@ import { VehiclesService } from '../vehicles/vehicles.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { I18nContext } from 'nestjs-i18n';
 
+import { CreateDirectReceptionDto } from './dto/create-direct-reception.dto';
+
 @Injectable()
 export class MaintenanceService {
   constructor(
@@ -20,6 +22,100 @@ export class MaintenanceService {
     private readonly vehiclesService: VehiclesService,
     private readonly inventoryService: InventoryService,
   ) {}
+
+  /**
+   * Direct vehicle reception without a prior appointment (Walk-in).
+   * Finds/creates customer, finds/creates vehicle, auto-registers a completed appointment,
+   * and creates an active maintenance order (status: 'not_started').
+   */
+  async directReception(dto: CreateDirectReceptionDto, userId: string, branchId: string): Promise<MaintenanceDocument> {
+    let customerId = dto.customerId;
+    const phone = dto.customerPhone.trim();
+
+    let customer: any = null;
+    if (customerId) {
+      customer = await this.customersService.findById(customerId, branchId);
+    } else {
+      try {
+        customer = await this.customersService.findByPhone(phone, branchId);
+        customerId = (customer._id as any).toString();
+      } catch (e) {
+        if (!(e instanceof NotFoundException)) throw e;
+        customer = await this.customersService.create(
+          {
+            name: dto.customerName,
+            email: dto.customerEmail,
+            phone: phone,
+            whatsappId: dto.whatsappId,
+          },
+          branchId,
+        );
+        customerId = (customer._id as any).toString();
+      }
+    }
+
+    const serialNumberLastFour = dto.vehicle.serialNumberLastFour.toUpperCase().trim();
+    let vehicle: any = null;
+    try {
+      vehicle = await this.vehiclesService.findBySerialNumberLastFour(serialNumberLastFour, branchId);
+    } catch (e) {
+      if (!(e instanceof NotFoundException)) throw e;
+      vehicle = await this.vehiclesService.create(
+        {
+          customerId: customerId!,
+          brand: dto.vehicle.brand,
+          model: dto.vehicle.model,
+          year: dto.vehicle.year,
+          serialNumberLastFour: serialNumberLastFour,
+          color: dto.vehicle.color,
+        },
+        branchId,
+      );
+    }
+
+    // Register a completed appointment record for workshop analytics & timeline
+    let appointment: any = null;
+    try {
+      const appt = new this.appointmentModel({
+        branch: branchId,
+        customer: customerId as any,
+        customerName: dto.customerName,
+        customerPhone: phone,
+        customerEmail: dto.customerEmail,
+        whatsappId: dto.whatsappId,
+        vehicle: {
+          brand: dto.vehicle.brand,
+          model: dto.vehicle.model,
+          year: dto.vehicle.year,
+          serialNumberLastFour,
+        },
+        serviceRequested: dto.serviceRequested,
+        scheduledAt: new Date(),
+        duration: 15,
+        status: 'completed',
+        notes: dto.notes || 'Recepción directa en sucursal (Walk-in)',
+        assignedMechanic: dto.assignedMechanic || null,
+      });
+      appointment = await appt.save();
+    } catch (err) {
+      console.error('Error auto-creating completed appointment during direct reception:', err);
+    }
+
+    const maintenance = new this.maintenanceModel({
+      branch: branchId,
+      customer: customerId as any,
+      vehicle: (vehicle._id as any).toString(),
+      appointment: appointment ? (appointment._id as any).toString() : null,
+      laborCost: dto.laborCost || 0,
+      notes: dto.notes || dto.serviceRequested,
+      status: 'not_started',
+      createdBy: userId as any,
+      startDate: new Date(),
+    });
+
+    const saved = await maintenance.save();
+    return saved.populate(['customer', 'vehicle', 'createdBy', 'appointment']);
+  }
 
   async create(createMaintenanceDto: CreateMaintenanceDto, userId: string, branchId: string): Promise<MaintenanceDocument> {
     // Verify customer
@@ -127,15 +223,26 @@ export class MaintenanceService {
    * Finds any maintenance in `awaiting_appointment` linked to this appointment
    * and promotes it to `not_started` so workshop staff can begin.
    */
-  async activateFromAppointment(appointmentId: string, branchId: string): Promise<void> {
-    if (!Types.ObjectId.isValid(appointmentId)) return;
+  async activateFromAppointment(appointmentId: string, branchId: string): Promise<MaintenanceDocument | null> {
+    if (!Types.ObjectId.isValid(appointmentId)) return null;
 
-    await this.maintenanceModel
-      .updateMany(
+    let order: any = await this.maintenanceModel
+      .findOneAndUpdate(
         { appointment: appointmentId, status: 'awaiting_appointment', branch: branchId } as any,
         { $set: { status: 'not_started' } },
+        { new: true },
       )
+      .populate(['customer', 'vehicle', 'createdBy', 'appointment'])
       .exec();
+
+    if (!order) {
+      order = await this.maintenanceModel
+        .findOne({ appointment: appointmentId, branch: branchId } as any)
+        .populate(['customer', 'vehicle', 'createdBy', 'appointment'])
+        .exec();
+    }
+
+    return order as MaintenanceDocument | null;
   }
 
   /**

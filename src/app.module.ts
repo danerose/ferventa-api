@@ -24,6 +24,7 @@ import { BranchesModule } from './branches/branches.module';
 import { MigrationModule } from './migration/migration.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { ServicesModule } from './services/services.module';
+import { OrdersModule } from './orders/orders.module';
 
 @Module({
   imports: [
@@ -80,6 +81,7 @@ import { ServicesModule } from './services/services.module';
     MigrationModule,
     AttendanceModule,
     ServicesModule,
+    OrdersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

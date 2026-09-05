@@ -19,6 +19,7 @@ import { diskStorage } from 'multer';
 import * as path from 'path';
 import * as fs from 'fs';
 import { MaintenanceService } from './maintenance.service';
+import { CreateDirectReceptionDto } from './dto/create-direct-reception.dto';
 import { CreateMaintenanceDto } from './dto/create-maintenance.dto';
 import { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
 import { AddItemUsedDto } from './dto/add-item-used.dto';
@@ -55,6 +56,19 @@ export class MaintenanceController {
   }
 
   // --- STAFF ENDPOINTS (Required Auth) ---
+  @Post('direct-reception')
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
+  @Roles('admin', 'seller')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Recepción directa de vehículo sin cita previa (Walk-in / Mostrador)' })
+  directReception(
+    @BranchId() branchId: string,
+    @Body() createDirectReceptionDto: CreateDirectReceptionDto,
+    @CurrentUser('_id') userId: string,
+  ) {
+    return this.maintenanceService.directReception(createDirectReceptionDto, userId, branchId);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
   @Roles('admin', 'seller')

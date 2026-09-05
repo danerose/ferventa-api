@@ -211,6 +211,15 @@ export class AppointmentsController {
     );
   }
 
+  @Patch(':id/check-in')
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
+  @Roles('admin', 'seller')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Recibir vehículo para una cita agendada (Check-in rápido en sucursal)' })
+  checkIn(@BranchId() branchId: string, @Param('id') id: string) {
+    return this.appointmentsService.checkIn(id, branchId);
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
   @Roles('admin')
