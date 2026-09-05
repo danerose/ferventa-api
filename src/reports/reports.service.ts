@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Sale, SaleDocument } from '../sales/schemas/sale.schema';
 import { StockMovement, StockMovementDocument } from '../inventory/schemas/stock-movement.schema';
 import { Maintenance, MaintenanceDocument } from '../maintenance/schemas/maintenance.schema';
@@ -111,8 +111,32 @@ export class ReportsService {
     return stats;
   }
 
-  async getMaintenanceSummary() {
+  async getMaintenanceSummary(branchId?: string) {
+    const matchStage: any = {
+      status: { $nin: ['awaiting_appointment'] },
+    };
+    if (branchId && Types.ObjectId.isValid(branchId)) {
+      matchStage.branch = new Types.ObjectId(branchId);
+    }
+
     const stats = await this.maintenanceModel.aggregate([
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: 'appointments',
+          localField: 'appointment',
+          foreignField: '_id',
+          as: 'apptDoc',
+        },
+      },
+      {
+        $match: {
+          $or: [
+            { appointment: null },
+            { 'apptDoc.0.status': { $in: ['approved', 'completed', 'rescheduled'] } },
+          ],
+        },
+      },
       {
         $group: {
           _id: '$status',
@@ -129,7 +153,10 @@ export class ReportsService {
   }
 
   async getMaintenanceMetrics(branchId?: string, start?: string, end?: string) {
-    const matchQuery: any = {};
+    const matchQuery: any = {
+      // Excluir órdenes en limbo de cita no completada
+      status: { $nin: ['awaiting_appointment'] },
+    };
     if (branchId) {
       matchQuery.branch = branchId;
     }
@@ -149,11 +176,19 @@ export class ReportsService {
       ];
     }
 
-    const orders = await this.maintenanceModel
+    const rawOrders = await this.maintenanceModel
       .find(matchQuery)
       .populate('customer', 'name phone')
       .populate('vehicle', 'brand model serialNumberLastFour')
+      .populate('appointment', 'status')
       .exec();
+
+    // Only include orders without a linked appointment (walk-in) or with an approved/completed/rescheduled appointment
+    const orders = rawOrders.filter((o) => {
+      if (!o.appointment) return true;
+      const apptStatus = (o.appointment as any)?.status;
+      return apptStatus === 'approved' || apptStatus === 'completed' || apptStatus === 'rescheduled';
+    });
 
     let totalQueueHours = 0;
     let queueCount = 0;
@@ -213,13 +248,20 @@ export class ReportsService {
       }
     });
 
-    // Find all vehicles currently in 'completed' status awaiting pickup
-    const pendingPickupOrders = await this.maintenanceModel
+    // Find all vehicles currently in 'completed' status awaiting pickup (excluding non-approved/cancelled appointments)
+    const rawPendingPickupOrders = await this.maintenanceModel
       .find({ branch: branchId, status: 'completed' })
       .populate('customer', 'name phone')
       .populate('vehicle', 'brand model serialNumberLastFour')
+      .populate('appointment', 'status')
       .sort({ updatedAt: 1 })
       .exec();
+
+    const pendingPickupOrders = rawPendingPickupOrders.filter((order) => {
+      if (!order.appointment) return true;
+      const apptStatus = (order.appointment as any)?.status;
+      return apptStatus === 'approved' || apptStatus === 'completed' || apptStatus === 'rescheduled';
+    });
 
     const now = Date.now();
     const pendingPickupVehicles = pendingPickupOrders.map((order) => {

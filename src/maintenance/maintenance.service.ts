@@ -213,6 +213,8 @@ export class MaintenanceService {
       ];
     } else if (filters.status) {
       query.status = filters.status;
+    } else {
+      query.status = { $ne: 'awaiting_appointment' };
     }
 
     // Date range filters
@@ -296,11 +298,19 @@ export class MaintenanceService {
       }
     }
 
-    return this.maintenanceModel
+    const orders = await this.maintenanceModel
       .find(query)
       .populate(['customer', 'vehicle', 'createdBy', 'appointment', 'sale'])
       .sort({ createdAt: -1 })
       .exec();
+
+    // Do not return orders in awaiting_appointment limbo or linked to non-approved/cancelled appointments
+    return orders.filter((order) => {
+      if (order.status === 'awaiting_appointment') return false;
+      if (!order.appointment) return true;
+      const apptStatus = (order.appointment as any)?.status;
+      return apptStatus === 'approved' || apptStatus === 'completed' || apptStatus === 'rescheduled';
+    });
   }
 
   async findById(id: string, branchId: string): Promise<MaintenanceDocument> {
@@ -651,13 +661,33 @@ export class MaintenanceService {
     }
 
     // Public view only exposes safe details: client name, vehicle serial number, service status, and photos
-    return this.maintenanceModel
-      .find(query)
-      .select('customer vehicle status laborCost evidencePhotos notes startDate endDate')
+    const results = await this.maintenanceModel
+      .find({ ...query, status: { $ne: 'awaiting_appointment' } })
+      .select('customer vehicle appointment status laborCost evidencePhotos notes startDate endDate')
       .populate('customer', 'name')
       .populate('vehicle', 'brand model serialNumberLastFour color')
+      .populate('appointment', 'status')
       .sort({ createdAt: -1 })
       .exec();
+
+    return results.filter((order) => {
+      if (order.status === 'awaiting_appointment') return false;
+      if (!order.appointment) return true;
+      const apptStatus = (order.appointment as any)?.status;
+      return apptStatus === 'approved' || apptStatus === 'completed' || apptStatus === 'rescheduled';
+    });
+  }
+
+  /**
+   * Cleans up any maintenance in 'awaiting_appointment' limbo when an appointment is cancelled, rejected, or deleted.
+   */
+  async handleAppointmentCancelled(appointmentId: string, branchId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(appointmentId)) return;
+    await this.maintenanceModel.deleteMany({
+      appointment: appointmentId,
+      status: 'awaiting_appointment',
+      branch: branchId,
+    } as any).exec();
   }
 
   async remove(id: string, branchId: string): Promise<void> {

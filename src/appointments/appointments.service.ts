@@ -337,6 +337,8 @@ export class AppointmentsService {
     // When an appointment is marked as completed, activate any linked maintenance orders
     if (updateAppointmentDto.status === 'completed') {
       await this.maintenanceService.activateFromAppointment(id, branchId);
+    } else if (updateAppointmentDto.status === 'cancelled' || updateAppointmentDto.status === 'rejected') {
+      await this.maintenanceService.handleAppointmentCancelled(id, branchId);
     }
 
     return saved.populate('customer');
@@ -348,6 +350,7 @@ export class AppointmentsService {
       const i18n = I18nContext.current();
       throw new NotFoundException(i18n ? i18n.t('common.errors.appointmentNotFound') : 'Cita no encontrada');
     }
+    await this.maintenanceService.handleAppointmentCancelled(id, branchId);
   }
 
   // --- WORKSHOP SCHEDULE CONFIG ---
