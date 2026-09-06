@@ -3,28 +3,25 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ThrottlerModule } from '@nestjs/throttler';
 import * as path from 'path';
-import {
-  I18nModule,
-  AcceptLanguageResolver,
-} from 'nestjs-i18n';
+import { I18nModule, AcceptLanguageResolver } from 'nestjs-i18n';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { UsersModule } from './users/users.module';
-import { SessionsModule } from './sessions/sessions.module';
-import { AuthModule } from './auth/auth.module';
-import { InventoryModule } from './inventory/inventory.module';
-import { CustomersModule } from './customers/customers.module';
-import { VehiclesModule } from './vehicles/vehicles.module';
-import { AppointmentsModule } from './appointments/appointments.module';
-import { MaintenanceModule } from './maintenance/maintenance.module';
-import { QuotesModule } from './quotes/quotes.module';
-import { SalesModule } from './sales/sales.module';
-import { ReportsModule } from './reports/reports.module';
-import { BranchesModule } from './branches/branches.module';
-import { MigrationModule } from './migration/migration.module';
-import { AttendanceModule } from './attendance/attendance.module';
-import { ServicesModule } from './services/services.module';
-import { OrdersModule } from './orders/orders.module';
+import { UsersModule } from './modules/users/users.module';
+import { SessionsModule } from './modules/sessions/sessions.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
+import { CustomersModule } from './modules/customers/customers.module';
+import { VehiclesModule } from './modules/vehicles/vehicles.module';
+import { AppointmentsModule } from './modules/appointments/appointments.module';
+import { MaintenanceModule } from './modules/maintenance/maintenance.module';
+import { QuotesModule } from './modules/quotes/quotes.module';
+import { SalesModule } from './modules/sales/sales.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { BranchesModule } from './modules/branches/branches.module';
+import { MigrationModule } from './scripts/migration/migration.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
+import { ServicesModule } from './modules/services/services.module';
+import { OrdersModule } from './modules/orders/orders.module';
 
 @Module({
   imports: [
@@ -47,7 +44,7 @@ import { OrdersModule } from './orders/orders.module';
     I18nModule.forRoot({
       fallbackLanguage: 'es',
       loaderOptions: {
-        path: path.join(__dirname, '/i18n/'),
+        path: path.join(__dirname, '/common/i18n/'),
         watch: true,
       },
       resolvers: [AcceptLanguageResolver],
@@ -87,5 +84,3 @@ import { OrdersModule } from './orders/orders.module';
   providers: [AppService],
 })
 export class AppModule {}
-
-
