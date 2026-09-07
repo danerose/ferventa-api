@@ -271,13 +271,16 @@ export class MaintenanceService {
     if (filters.scope === 'active') {
       query.status = { $in: ['not_started', 'in_progress', 'completed'] };
     } else if (filters.scope === 'delivered_recent') {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       query.status = 'delivered';
-      query.$or = [
-        { deliveredAt: { $gte: sevenDaysAgo } },
-        { deliveredAt: null, updatedAt: { $gte: sevenDaysAgo } },
-      ];
+      // Solo aplicar ventana de 7 días si NO se especificó un rango de fechas explícito
+      if (!filters.from && !filters.to) {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        query.$or = [
+          { deliveredAt: { $gte: sevenDaysAgo } },
+          { deliveredAt: null, updatedAt: { $gte: sevenDaysAgo } },
+        ];
+      }
     } else if (filters.status) {
       query.status = filters.status;
     } else {
