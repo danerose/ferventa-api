@@ -65,6 +65,7 @@ export class Appointment {
       'cancelled',
       'completed',
       'rescheduled',
+      'no_show',
     ],
     default: 'pending',
   })

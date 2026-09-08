@@ -146,7 +146,7 @@ export class CreateAppointmentDto {
 
   @ApiPropertyOptional({
     example: 'approved',
-    enum: ['pending', 'approved', 'completed'],
+    enum: ['pending', 'approved', 'completed', 'no_show'],
     description: 'Estado inicial de la cita (Solo Staff)',
   })
   @IsString({ message: i18nValidationMessage('validation.isString') })

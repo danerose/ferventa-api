@@ -85,6 +85,7 @@ export class UpdateAppointmentDto {
       'cancelled',
       'completed',
       'rescheduled',
+      'no_show',
     ],
     description: 'Estado de la cita',
   })
@@ -96,6 +97,7 @@ export class UpdateAppointmentDto {
       'cancelled',
       'completed',
       'rescheduled',
+      'no_show',
     ],
     {
       message: i18nValidationMessage('validation.isEnum'),

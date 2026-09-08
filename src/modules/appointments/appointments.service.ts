@@ -284,10 +284,21 @@ export class AppointmentsService {
       createAppointmentDto.vehicle.serialNumberLastFour.toUpperCase().trim();
     let vehicle: any = null;
     try {
-      // If the vehicle already exists (same serial), reuse it
+      // If the vehicle already exists (same serial), update and reuse it
       vehicle = await this.vehiclesService.findBySerialNumberLastFour(
         serialNumberLastFour,
         branchId,
+      );
+      vehicle = await this.vehiclesService.update(
+        (vehicle._id as any).toString(),
+        branchId,
+        {
+          customerId: customerId!,
+          brand: createAppointmentDto.vehicle.brand,
+          model: createAppointmentDto.vehicle.model,
+          year: createAppointmentDto.vehicle.year,
+          color: (createAppointmentDto.vehicle as any).color,
+        },
       );
     } catch (e) {
       if (!(e instanceof NotFoundException)) throw e;
@@ -299,6 +310,7 @@ export class AppointmentsService {
           model: createAppointmentDto.vehicle.model,
           year: createAppointmentDto.vehicle.year,
           serialNumberLastFour: serialNumberLastFour,
+          color: (createAppointmentDto.vehicle as any).color,
         },
         branchId,
       );
@@ -509,7 +521,8 @@ export class AppointmentsService {
       await this.maintenanceService.activateFromAppointment(id, branchId);
     } else if (
       updateAppointmentDto.status === 'cancelled' ||
-      updateAppointmentDto.status === 'rejected'
+      updateAppointmentDto.status === 'rejected' ||
+      updateAppointmentDto.status === 'no_show'
     ) {
       await this.maintenanceService.handleAppointmentCancelled(id, branchId);
     }
@@ -870,5 +883,30 @@ export class AppointmentsService {
       appointment: await saved.populate('customer'),
       maintenance,
     };
+  }
+
+  /**
+   * Marcar cita como No Asistió (no_show):
+   * Actualiza el status de la cita a 'no_show' y limpia cualquier orden vinculada
+   * en 'awaiting_appointment' para que no figure en mantenimiento.
+   */
+  async markNoShow(
+    id: string,
+    branchId: string,
+    notes?: string,
+  ): Promise<AppointmentDocument> {
+    const appointment = await this.findById(id, branchId);
+    appointment.status = 'no_show';
+    if (notes) {
+      appointment.notes = appointment.notes
+        ? `${appointment.notes} | ${notes}`
+        : notes;
+    }
+    const saved = await appointment.save();
+
+    // Eliminar cualquier orden en 'awaiting_appointment' vinculada
+    await this.maintenanceService.handleAppointmentCancelled(id, branchId);
+
+    return saved.populate('customer');
   }
 }

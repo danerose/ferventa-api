@@ -89,28 +89,78 @@ export class MaintenanceService {
       }
     }
 
-    const serialNumberLastFour = dto.vehicle.serialNumberLastFour
-      .toUpperCase()
-      .trim();
+    const incomingVehicleId =
+      dto.vehicleId ||
+      dto.vehicle?.id ||
+      (dto.vehicle as any)?._id;
     let vehicle: any = null;
-    try {
-      vehicle = await this.vehiclesService.findBySerialNumberLastFour(
-        serialNumberLastFour,
-        branchId,
-      );
-    } catch (e) {
-      if (!(e instanceof NotFoundException)) throw e;
-      vehicle = await this.vehiclesService.create(
-        {
-          customerId: customerId!,
-          brand: dto.vehicle.brand,
-          model: dto.vehicle.model,
-          year: dto.vehicle.year,
-          serialNumberLastFour: serialNumberLastFour,
-          color: dto.vehicle.color,
-        },
-        branchId,
-      );
+
+    if (incomingVehicleId) {
+      try {
+        vehicle = await this.vehiclesService.findById(
+          incomingVehicleId,
+          branchId,
+        );
+        // Si el usuario envió cambios en el formulario para el vehículo seleccionado, se actualizan
+        vehicle = await this.vehiclesService.update(
+          incomingVehicleId,
+          branchId,
+          {
+            customerId: customerId!,
+            brand: dto.vehicle.brand || vehicle.brand,
+            model: dto.vehicle.model || vehicle.model,
+            year:
+              dto.vehicle.year !== undefined
+                ? dto.vehicle.year
+                : vehicle.year,
+            color:
+              dto.vehicle.color !== undefined
+                ? dto.vehicle.color
+                : vehicle.color,
+          },
+        );
+      } catch (err) {
+        vehicle = null;
+      }
+    }
+
+    if (!vehicle) {
+      const serialNumberLastFour = dto.vehicle.serialNumberLastFour
+        .toUpperCase()
+        .trim();
+      try {
+        const existing =
+          await this.vehiclesService.findBySerialNumberLastFour(
+            serialNumberLastFour,
+            branchId,
+          );
+
+        // Si ya existe un vehículo con esa serie, respetamos lo ingresado y lo asignamos a este cliente
+        vehicle = await this.vehiclesService.update(
+          (existing._id as any).toString(),
+          branchId,
+          {
+            customerId: customerId!,
+            brand: dto.vehicle.brand,
+            model: dto.vehicle.model,
+            year: dto.vehicle.year,
+            color: dto.vehicle.color,
+          },
+        );
+      } catch (e) {
+        if (!(e instanceof NotFoundException)) throw e;
+        vehicle = await this.vehiclesService.create(
+          {
+            customerId: customerId!,
+            brand: dto.vehicle.brand,
+            model: dto.vehicle.model,
+            year: dto.vehicle.year,
+            serialNumberLastFour: serialNumberLastFour,
+            color: dto.vehicle.color,
+          },
+          branchId,
+        );
+      }
     }
 
     // Register a completed appointment record for workshop analytics & timeline
@@ -124,10 +174,10 @@ export class MaintenanceService {
         customerEmail: dto.customerEmail,
         whatsappId: dto.whatsappId,
         vehicle: {
-          brand: dto.vehicle.brand,
-          model: dto.vehicle.model,
-          year: dto.vehicle.year,
-          serialNumberLastFour,
+          brand: vehicle.brand,
+          model: vehicle.model,
+          year: vehicle.year,
+          serialNumberLastFour: vehicle.serialNumberLastFour,
         },
         serviceRequested: dto.serviceRequested,
         scheduledAt: new Date(),

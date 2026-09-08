@@ -40,6 +40,15 @@ export class DirectReceptionVehicleDto {
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsOptional()
   color?: string;
+
+  @ApiPropertyOptional({
+    example: '60d5ec49c6d48227b409748b',
+    description: 'ID del vehículo existente si aplica',
+  })
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
+  @IsOptional()
+  id?: string;
 }
 
 export class CreateDirectReceptionDto {
@@ -78,6 +87,15 @@ export class CreateDirectReceptionDto {
   @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
   @IsOptional()
   customerId?: string;
+
+  @ApiPropertyOptional({
+    example: '60d5ec49c6d48227b409748c',
+    description: 'ID del vehículo si ya existe en sistema (seleccionado por el usuario)',
+  })
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
+  @IsOptional()
+  vehicleId?: string;
 
   @ApiProperty({
     type: DirectReceptionVehicleDto,

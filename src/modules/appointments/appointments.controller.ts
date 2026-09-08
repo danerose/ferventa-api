@@ -346,6 +346,21 @@ export class AppointmentsController {
     return this.appointmentsService.checkIn(id, branchId, receptionNotes);
   }
 
+  @Patch(':id/no-show')
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
+  @Roles('admin', 'seller')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Marcar cita como No Asistió (No-show)',
+  })
+  markNoShow(
+    @BranchId() branchId: string,
+    @Param('id') id: string,
+    @Body('notes') notes?: string,
+  ) {
+    return this.appointmentsService.markNoShow(id, branchId, notes);
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
   @Roles('admin')
