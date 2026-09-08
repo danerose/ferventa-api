@@ -20,6 +20,7 @@ import {
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Branches')
 @ApiBearerAuth()
@@ -31,6 +32,24 @@ export class BranchesController {
   @ApiOperation({ summary: 'Obtener todas las sucursales (Público)' })
   findPublic() {
     return this.branchesService.findAll(true);
+  }
+
+  @Get('user')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Obtener las sucursales asignadas al usuario autenticado',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sucursales del usuario retornadas con éxito.',
+  })
+  findUserBranches(
+    @CurrentUser() user: any,
+    @Query('isActive') isActive?: string,
+  ) {
+    const isActiveBool =
+      isActive !== undefined ? isActive === 'true' : true;
+    return this.branchesService.findByUser(user, isActiveBool);
   }
 
   @Post()

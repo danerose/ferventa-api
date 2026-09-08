@@ -37,6 +37,30 @@ export class BranchesService {
     return this.branchModel.find(filter).exec();
   }
 
+  async findByUser(user: any, isActive?: boolean): Promise<Branch[]> {
+    const isAdmin =
+      user?.role?.name === 'admin' ||
+      (user?.role?.permissions &&
+        (user.role.permissions.includes('*') ||
+          user.role.permissions.includes('branches:read')));
+
+    const filter: any = {};
+    if (isActive !== undefined) {
+      filter.isActive = isActive;
+    }
+
+    // Admins have access to all branches
+    if (isAdmin) {
+      return this.branchModel.find(filter).exec();
+    }
+
+    const rawBranchIds = user?.branches || [];
+    const branchIds = rawBranchIds.map((b: any) => (b?._id ? b._id : b));
+    filter._id = { $in: branchIds };
+
+    return this.branchModel.find(filter).exec();
+  }
+
   async findOne(id: string): Promise<Branch> {
     const branch = await this.branchModel.findById(id).exec();
     if (!branch) {

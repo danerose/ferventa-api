@@ -84,11 +84,11 @@ describe('UsersService - Password Management', () => {
       });
 
       expect(result.tempPassword).toBeDefined();
-      expect(result.tempPassword.length).toBeGreaterThanOrEqual(8);
+      expect(result.tempPassword!.length).toBeGreaterThanOrEqual(8);
       expect(result.user.defaultPassword).toBe(result.tempPassword);
       expect(result.user.isDefaultPassword).toBe(true);
       expect(result.whatsappUrl).toContain('8112345678');
-      expect(await bcrypt.compare(result.tempPassword, result.user.password)).toBe(true);
+      expect(await bcrypt.compare(result.tempPassword!, result.user.password)).toBe(true);
     });
   });
 
