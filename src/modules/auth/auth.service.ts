@@ -13,6 +13,7 @@ import { UsersService } from '../users/users.service';
 import { SessionsService } from '../sessions/sessions.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from '../users/dto/change-password.dto';
 import { Role, RoleDocument } from '../users/schemas/role.schema';
 import { UserDocument } from '../users/schemas/user.schema';
 import { I18nContext } from 'nestjs-i18n';
@@ -214,6 +215,10 @@ export class AuthService {
 
   async logout(sessionId: string, userId: string) {
     await this.sessionsService.revoke(sessionId, userId, false);
+  }
+
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
+    return this.usersService.changePassword(userId, changePasswordDto);
   }
 
   private generateAccessToken(user: UserDocument, sessionId: string): string {

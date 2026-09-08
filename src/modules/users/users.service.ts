@@ -11,6 +11,8 @@ import { User, UserDocument } from './schemas/user.schema';
 import { Role, RoleDocument } from './schemas/role.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { AdminResetPasswordDto } from './dto/admin-reset-password.dto';
 import { I18nContext } from 'nestjs-i18n';
 
 @Injectable()
@@ -83,16 +85,27 @@ export class UsersService implements OnModuleInit {
     }
   }
 
+  private generateRandomPassword(): string {
+    return (
+      Math.random().toString(36).slice(-8) +
+      Math.random().toString(36).slice(-2).toUpperCase() +
+      '!'
+    );
+  }
+
   private async seedAdminUser() {
     const adminCount = await this.userModel.countDocuments();
     if (adminCount === 0) {
       const adminRole = await this.roleModel.findOne({ name: 'admin' });
       if (adminRole) {
-        const hashedPassword = await bcrypt.hash('AdminPassword123!', 10);
+        const defaultAdminPassword = 'AdminPassword123!';
+        const hashedPassword = await bcrypt.hash(defaultAdminPassword, 10);
         await this.userModel.create({
           name: 'Administrador Inicial',
           email: 'admin@ferventa.com',
           password: hashedPassword,
+          defaultPassword: defaultAdminPassword,
+          isDefaultPassword: true,
           role: adminRole._id as any,
           isActive: true,
           phone: '0000000000',
@@ -231,12 +244,9 @@ export class UsersService implements OnModuleInit {
     }
 
     // Auto-generate password if not provided
-    let rawPassword = password;
+    let rawPassword = password?.trim();
     if (!rawPassword) {
-      rawPassword =
-        Math.random().toString(36).slice(-8) +
-        Math.random().toString(36).slice(-2).toUpperCase() +
-        '!';
+      rawPassword = this.generateRandomPassword();
     }
 
     const existingEmail = await this.userModel.exists({ email });
@@ -264,6 +274,8 @@ export class UsersService implements OnModuleInit {
       username,
       email,
       password: hashedPassword,
+      defaultPassword: rawPassword,
+      isDefaultPassword: true,
       role: role._id,
       branches: createUserDto.branches || [],
       phone,
@@ -359,6 +371,8 @@ Puedes iniciar sesión en el siguiente enlace:
 
     if (updateUserDto.password) {
       user.password = await bcrypt.hash(updateUserDto.password, 10);
+      user.defaultPassword = updateUserDto.password;
+      user.isDefaultPassword = true;
     }
 
     if (updateUserDto.phone !== undefined) {
@@ -388,6 +402,108 @@ Puedes iniciar sesión en el siguiente enlace:
 
     const updated = await user.save();
     return updated.populate(['role', 'branches']);
+  }
+
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    const user = await this.userModel
+      .findOne({ _id: userId, deletedAt: null })
+      .exec();
+    if (!user) {
+      const i18n = I18nContext.current();
+      throw new NotFoundException(
+        i18n ? i18n.t('common.errors.userNotFound') : 'Usuario no encontrado',
+      );
+    }
+
+    const isCurrentValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.password,
+    );
+    if (!isCurrentValid) {
+      const i18n = I18nContext.current();
+      throw new BadRequestException(
+        i18n
+          ? i18n.t('common.errors.invalidCurrentPassword')
+          : 'La contraseña actual es incorrecta',
+      );
+    }
+
+    if (dto.currentPassword === dto.newPassword) {
+      const i18n = I18nContext.current();
+      throw new BadRequestException(
+        i18n
+          ? i18n.t('common.errors.samePassword')
+          : 'La nueva contraseña no puede ser igual a la contraseña actual',
+      );
+    }
+
+    // Encrypt the new user password
+    user.password = await bcrypt.hash(dto.newPassword, 10);
+    // Erase the default password permanently so admin can no longer see it
+    user.defaultPassword = null;
+    user.isDefaultPassword = false;
+    await user.save();
+
+    const i18n = I18nContext.current();
+    return {
+      message: i18n
+        ? i18n.t('common.success.users.changePassword')
+        : 'Contraseña actualizada exitosamente',
+    };
+  }
+
+  async adminResetPassword(
+    userId: string,
+    dto?: AdminResetPasswordDto,
+  ): Promise<{
+    user: UserDocument;
+    tempPassword: string;
+    message: string;
+    whatsappUrl: string | null;
+  }> {
+    const user = await this.findById(userId);
+
+    let rawPassword = dto?.newPassword?.trim();
+    if (!rawPassword) {
+      rawPassword = this.generateRandomPassword();
+    }
+
+    user.password = await bcrypt.hash(rawPassword, 10);
+    user.defaultPassword = rawPassword;
+    user.isDefaultPassword = true;
+    const saved = await user.save();
+    const populated = await saved.populate(['role', 'branches']);
+
+    const formattedText = `¡Hola ${populated.name}! Tu contraseña en Ferventa ha sido actualizada por el administrador.
+
+Detalles de acceso:
+- Usuario: ${populated.username || populated.email}
+- Correo: ${populated.email}
+- Nueva contraseña temporal: ${rawPassword}
+
+Puedes iniciar sesión en el siguiente enlace:
+🔗 https://app.ferventa.com/login`;
+
+    let whatsappUrl: string | null = null;
+    if (populated.phone) {
+      let cleanPhone = populated.phone.replace(/\D/g, '');
+      if (cleanPhone.length === 10) {
+        cleanPhone = `52${cleanPhone}`;
+      }
+      if (cleanPhone.length >= 10) {
+        whatsappUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(formattedText)}`;
+      }
+    }
+
+    return {
+      user: populated,
+      tempPassword: rawPassword,
+      message: formattedText,
+      whatsappUrl,
+    };
   }
 
   async softDelete(id: string): Promise<void> {

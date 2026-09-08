@@ -5,13 +5,15 @@
       "signup": "Usuario registrado exitosamente",
       "login": "Sesión iniciada correctamente",
       "logout": "Sesión cerrada correctamente",
-      "refresh": "Token renovado exitosamente"
+      "refresh": "Token renovado exitosamente",
+      "changePassword": "Contraseña actualizada exitosamente"
     },
     "users": {
       "create": "Usuario creado exitosamente",
       "update": "Usuario actualizado exitosamente",
       "delete": "Usuario eliminado exitosamente",
-      "passwordReset": "Contraseña restablecida exitosamente"
+      "passwordReset": "Contraseña restablecida exitosamente",
+      "changePassword": "Contraseña actualizada exitosamente"
     },
     "attendance": {
       "clockIn": "Entrada registrada exitosamente",
@@ -102,6 +104,8 @@
     "notOnBreak": "No te encuentras en un descanso actualmente",
     "cannotClockOutOnBreak": "Debes finalizar tu descanso antes de registrar tu salida",
     "attendanceNotFound": "Registro de asistencia no encontrado",
-    "invalidPeriod": "Período no válido. Usa semanal, quincenal o mensual"
+    "invalidPeriod": "Período no válido. Usa semanal, quincenal o mensual",
+    "invalidCurrentPassword": "La contraseña actual es incorrecta",
+    "samePassword": "La nueva contraseña no puede ser igual a la contraseña actual"
   }
 }

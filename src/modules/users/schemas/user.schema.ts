@@ -31,6 +31,12 @@ export class User {
   @Prop({ required: true })
   password: string;
 
+  @Prop({ type: String, default: null })
+  defaultPassword?: string | null;
+
+  @Prop({ type: Boolean, default: false })
+  isDefaultPassword: boolean;
+
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Role', required: true })
   role: Role;
 

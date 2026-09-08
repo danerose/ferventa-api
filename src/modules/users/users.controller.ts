@@ -21,9 +21,12 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { AdminResetPasswordDto } from './dto/admin-reset-password.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 
 @ApiTags('Usuarios')
@@ -134,6 +137,49 @@ export class UsersController {
   })
   checkUsernameParam(@Param('username') username: string) {
     return this.usersService.checkUsername(username);
+  }
+
+  @Patch('change-password')
+  @ResponseMessage('users.changePassword')
+  @ApiOperation({
+    summary: 'Actualizar la propia contraseña del usuario autenticado',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Contraseña actualizada exitosamente.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Contraseña actual incorrecta o nueva contraseña inválida.',
+  })
+  changeOwnPassword(
+    @CurrentUser() user: any,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    return this.usersService.changePassword(
+      user._id.toString(),
+      changePasswordDto,
+    );
+  }
+
+  @Patch(':id/password')
+  @Roles('admin')
+  @ResponseMessage('users.passwordReset')
+  @ApiOperation({
+    summary:
+      'Actualizar o restablecer la contraseña de un usuario por su ID (Solo Admin)',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Contraseña actualizada exitosamente. Devuelve el usuario, contraseña asignada, mensaje y enlace de WhatsApp.',
+  })
+  @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
+  adminResetPassword(
+    @Param('id') id: string,
+    @Body() adminResetPasswordDto: AdminResetPasswordDto,
+  ) {
+    return this.usersService.adminResetPassword(id, adminResetPasswordDto);
   }
 
   @Get(':id')

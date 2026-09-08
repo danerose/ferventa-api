@@ -9,6 +9,7 @@ import {
   IsArray,
 } from 'class-validator';
 import { i18nValidationMessage } from 'nestjs-i18n';
+import { Transform } from 'class-transformer';
 
 export class CreateUserDto {
   @ApiProperty({
@@ -40,9 +41,10 @@ export class CreateUserDto {
 
   @ApiProperty({
     example: 'Password123!',
-    description: 'Contraseña de acceso (mínimo 6 caracteres)',
+    description: 'Contraseña de acceso (opcional, se auto-genera si no se provee)',
     required: false,
   })
+  @Transform(({ value }) => (value === '' ? undefined : value))
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @MinLength(6, { message: i18nValidationMessage('validation.minLength') })
   @IsOptional()

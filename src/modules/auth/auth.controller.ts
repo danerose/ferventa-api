@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Body,
   UseGuards,
   Req,
@@ -19,6 +20,7 @@ import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { ChangePasswordDto } from '../users/dto/change-password.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
@@ -79,6 +81,31 @@ export class AuthController {
     return { message: 'Sesión cerrada correctamente' };
   }
 
+  @Patch('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ResponseMessage('auth.changePassword')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Actualizar la propia contraseña del usuario autenticado',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Contraseña actualizada exitosamente.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Contraseña actual incorrecta o nueva contraseña inválida.',
+  })
+  async changePassword(
+    @CurrentUser() user: any,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(
+      user._id.toString(),
+      changePasswordDto,
+    );
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -92,6 +119,7 @@ export class AuthController {
       role: user.role,
       branches: user.branches || [],
       lastLoginAt: user.lastLoginAt,
+      isDefaultPassword: !!user.isDefaultPassword,
     };
   }
 }

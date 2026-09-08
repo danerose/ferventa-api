@@ -5,13 +5,15 @@
       "signup": "User registered successfully",
       "login": "Login successful",
       "logout": "Logout successful",
-      "refresh": "Token refreshed successfully"
+      "refresh": "Token refreshed successfully",
+      "changePassword": "Password updated successfully"
     },
     "users": {
       "create": "User created successfully",
       "update": "User updated successfully",
       "delete": "User deleted successfully",
-      "passwordReset": "Password reset successfully"
+      "passwordReset": "Password reset successfully",
+      "changePassword": "Password updated successfully"
     },
     "attendance": {
       "clockIn": "Clock in registered successfully",
@@ -102,6 +104,8 @@
     "notOnBreak": "You are not currently on a break",
     "cannotClockOutOnBreak": "You must end your break before clocking out",
     "attendanceNotFound": "Attendance record not found",
-    "invalidPeriod": "Invalid period. Use weekly, biweekly or monthly"
+    "invalidPeriod": "Invalid period. Use weekly, biweekly or monthly",
+    "invalidCurrentPassword": "Current password is incorrect",
+    "samePassword": "The new password cannot be the same as the current password"
   }
 }
