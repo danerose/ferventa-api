@@ -282,13 +282,13 @@ export class AppointmentsService {
 
     const serialNumberLastFour =
       createAppointmentDto.vehicle.serialNumberLastFour.toUpperCase().trim();
-    let vehicle: any = null;
-    try {
-      // If the vehicle already exists (same serial), update and reuse it
-      vehicle = await this.vehiclesService.findBySerialNumberLastFour(
-        serialNumberLastFour,
-        branchId,
-      );
+    let vehicle = await this.vehiclesService.findByCustomerAndSerial(
+      customerId!,
+      serialNumberLastFour,
+      branchId,
+    );
+
+    if (vehicle) {
       vehicle = await this.vehiclesService.update(
         (vehicle._id as any).toString(),
         branchId,
@@ -300,9 +300,7 @@ export class AppointmentsService {
           color: (createAppointmentDto.vehicle as any).color,
         },
       );
-    } catch (e) {
-      if (!(e instanceof NotFoundException)) throw e;
-      // Vehicle not found → create a new one
+    } else {
       vehicle = await this.vehiclesService.create(
         {
           customerId: customerId!,

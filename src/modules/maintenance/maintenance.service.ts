@@ -128,27 +128,28 @@ export class MaintenanceService {
       const serialNumberLastFour = dto.vehicle.serialNumberLastFour
         .toUpperCase()
         .trim();
-      try {
-        const existing =
-          await this.vehiclesService.findBySerialNumberLastFour(
-            serialNumberLastFour,
-            branchId,
-          );
 
-        // Si ya existe un vehículo con esa serie, respetamos lo ingresado y lo asignamos a este cliente
+      const existingForCustomer =
+        await this.vehiclesService.findByCustomerAndSerial(
+          customerId!,
+          serialNumberLastFour,
+          branchId,
+        );
+
+      if (existingForCustomer) {
+        // Si este cliente ya tiene este vehículo, actualizamos con los datos nuevos
         vehicle = await this.vehiclesService.update(
-          (existing._id as any).toString(),
+          (existingForCustomer._id as any).toString(),
           branchId,
           {
-            customerId: customerId!,
             brand: dto.vehicle.brand,
             model: dto.vehicle.model,
             year: dto.vehicle.year,
             color: dto.vehicle.color,
           },
         );
-      } catch (e) {
-        if (!(e instanceof NotFoundException)) throw e;
+      } else {
+        // Si este cliente no lo tiene, creamos un vehículo nuevo asignado a él
         vehicle = await this.vehiclesService.create(
           {
             customerId: customerId!,

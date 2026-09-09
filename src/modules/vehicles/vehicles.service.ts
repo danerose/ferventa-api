@@ -26,11 +26,12 @@ export class VehiclesService {
     // Verify customer exists and belongs to the same branch
     await this.customersService.findById(createVehicleDto.customerId, branchId);
 
-    // Verify serial number unique in this branch
+    // Verify serial number unique for this customer in this branch
     const formattedSerial = createVehicleDto.serialNumberLastFour
       .toUpperCase()
       .trim();
     const existing = await this.vehicleModel.findOne({
+      customer: createVehicleDto.customerId as any,
       serialNumberLastFour: formattedSerial,
       branch: branchId,
     });
@@ -39,7 +40,7 @@ export class VehiclesService {
       throw new BadRequestException(
         i18n
           ? i18n.t('common.errors.vehicleSerialNumberRegistered')
-          : 'Ya existe un vehículo registrado con este número de serie (últimos 4 dígitos)',
+          : 'Este cliente ya tiene registrado un vehículo con este número de serie (últimos 4 dígitos)',
       );
     }
 
@@ -115,6 +116,21 @@ export class VehiclesService {
     return vehicle;
   }
 
+  async findByCustomerAndSerial(
+    customerId: string,
+    serialNumberLastFour: string,
+    branchId: string,
+  ): Promise<VehicleDocument | null> {
+    return this.vehicleModel
+      .findOne({
+        customer: customerId as any,
+        serialNumberLastFour: serialNumberLastFour.toUpperCase().trim(),
+        branch: branchId,
+      })
+      .populate('customer')
+      .exec();
+  }
+
   async update(
     id: string,
     branchId: string,
@@ -135,16 +151,22 @@ export class VehiclesService {
         .toUpperCase()
         .trim();
       if (formattedSerial !== vehicle.serialNumberLastFour) {
+        const targetCustomerId =
+          updateVehicleDto.customerId ||
+          (vehicle.customer as any)?._id ||
+          vehicle.customer;
         const existing = await this.vehicleModel.findOne({
+          customer: targetCustomerId as any,
           serialNumberLastFour: formattedSerial,
           branch: branchId,
+          _id: { $ne: id },
         });
         if (existing) {
           const i18n = I18nContext.current();
           throw new BadRequestException(
             i18n
               ? i18n.t('common.errors.vehicleSerialNumberRegistered')
-              : 'Ya existe otro vehículo registrado con este número de serie (últimos 4 dígitos)',
+              : 'Este cliente ya tiene registrado otro vehículo con este número de serie (últimos 4 dígitos)',
           );
         }
         vehicle.serialNumberLastFour = formattedSerial;
