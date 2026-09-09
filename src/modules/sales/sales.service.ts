@@ -542,8 +542,7 @@ export class SalesService {
             {
               $group: {
                 _id: {
-                  $dateToString: {
-                    format: '%Y-%m-%d',
+                  $dayOfWeek: {
                     date: '$createdAt',
                     timezone: tzString,
                   },
@@ -653,54 +652,63 @@ export class SalesService {
       mainPaymentMethodLabel = 'Sin ventas';
     }
 
-    // 3. Daily Series (Filling days with 0s to guarantee continuous chart)
-    const dayNames = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-    const dailyMap = new Map<string, { revenue: number; count: number }>();
+    // 3. Daily Series (7 days of the week: lun, mar, mié, jue, vie, sáb, dom)
+    // MongoDB $dayOfWeek: 1=dom, 2=lun, 3=mar, 4=mié, 5=jue, 6=vie, 7=sáb
+    const dayOfWeekMap = new Map<number, { revenue: number; count: number }>();
     for (const dayItem of facetResults?.dailyStats || []) {
-      dailyMap.set(dayItem._id, {
+      dayOfWeekMap.set(dayItem._id, {
         revenue: dayItem.revenue,
         count: dayItem.count,
       });
     }
 
+    const daysConfig = [
+      { id: 2, day: 'lun', label: 'lun', name: 'Lunes' },
+      { id: 3, day: 'mar', label: 'mar', name: 'Martes' },
+      { id: 4, day: 'mié', label: 'mié', name: 'Miércoles' },
+      { id: 5, day: 'jue', label: 'jue', name: 'Jueves' },
+      { id: 6, day: 'vie', label: 'vie', name: 'Viernes' },
+      { id: 7, day: 'sáb', label: 'sáb', name: 'Sábado' },
+      { id: 1, day: 'dom', label: 'dom', name: 'Domingo' },
+    ];
+
     const dailyRevenue: Array<{
-      date: string;
+      day: string;
       label: string;
+      date: string;
       revenue: number;
       count: number;
-    }> = [];
+    }> = daysConfig.map((cfg) => {
+      const found = dayOfWeekMap.get(cfg.id) || { revenue: 0, count: 0 };
+      return {
+        day: cfg.day,
+        label: cfg.label,
+        date: cfg.day,
+        revenue: found.revenue,
+        count: found.count,
+      };
+    });
 
     if (filters.startDate && filters.endDate) {
-      const cur = new Date(`${filters.startDate}T00:00:00.000Z`);
+      const start = new Date(`${filters.startDate}T00:00:00.000Z`);
       const end = new Date(`${filters.endDate}T00:00:00.000Z`);
+      const diffDays =
+        Math.round((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
 
-      while (cur <= end) {
-        const dateStr = cur.toISOString().slice(0, 10);
-        const dayOfWeek = cur.getUTCDay();
-        const found = dailyMap.get(dateStr) || { revenue: 0, count: 0 };
-        dailyRevenue.push({
-          date: dateStr,
-          label: dayNames[dayOfWeek],
-          revenue: found.revenue,
-          count: found.count,
-        });
-        cur.setUTCDate(cur.getUTCDate() + 1);
-      }
-    } else {
-      // Default: last 7 days ending today
-      const today = new Date();
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(today);
-        d.setUTCDate(d.getUTCDate() - i);
-        const dateStr = d.toISOString().slice(0, 10);
-        const dayOfWeek = d.getUTCDay();
-        const found = dailyMap.get(dateStr) || { revenue: 0, count: 0 };
-        dailyRevenue.push({
-          date: dateStr,
-          label: dayNames[dayOfWeek],
-          revenue: found.revenue,
-          count: found.count,
-        });
+      if (diffDays <= 7) {
+        const cur = new Date(start);
+        const dayToDate = new Map<number, string>();
+        while (cur <= end) {
+          const mongoDayId = cur.getUTCDay() === 0 ? 1 : cur.getUTCDay() + 1;
+          dayToDate.set(mongoDayId, cur.toISOString().slice(0, 10));
+          cur.setUTCDate(cur.getUTCDate() + 1);
+        }
+        for (const item of dailyRevenue) {
+          const cfg = daysConfig.find((c) => c.day === item.day);
+          if (cfg && dayToDate.has(cfg.id)) {
+            item.date = dayToDate.get(cfg.id)!;
+          }
+        }
       }
     }
 

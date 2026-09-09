@@ -492,7 +492,7 @@ Base URL: `/api`
       "branches": [
         "6a5e6e9a0..."
       ],
-      "lastLoginAt": "2026-09-09T19:05:06.821Z"
+      "lastLoginAt": "2026-09-09T20:08:23.488Z"
     },
     "message": "Perfil retornado con éxito"
   }
@@ -2197,46 +2197,53 @@ Base URL: `/api`
       },
       "dailyRevenue": [
         {
-          "date": "2026-09-03",
+          "day": "lun",
+          "label": "lun",
+          "date": "2026-09-07",
+          "revenue": 0,
+          "count": 0
+        },
+        {
+          "day": "mar",
+          "label": "mar",
+          "date": "2026-09-08",
+          "revenue": 0,
+          "count": 0
+        },
+        {
+          "day": "mié",
+          "label": "mié",
+          "date": "2026-09-09",
+          "revenue": 5052932.8,
+          "count": 28
+        },
+        {
+          "day": "jue",
           "label": "jue",
+          "date": "2026-09-03",
           "revenue": 0,
           "count": 0
         },
         {
-          "date": "2026-09-04",
+          "day": "vie",
           "label": "vie",
+          "date": "2026-09-04",
           "revenue": 0,
           "count": 0
         },
         {
-          "date": "2026-09-05",
+          "day": "sáb",
           "label": "sáb",
+          "date": "2026-09-05",
           "revenue": 120000,
           "count": 1
         },
         {
-          "date": "2026-09-06",
+          "day": "dom",
           "label": "dom",
+          "date": "2026-09-06",
           "revenue": 0,
           "count": 0
-        },
-        {
-          "date": "2026-09-07",
-          "label": "lun",
-          "revenue": 0,
-          "count": 0
-        },
-        {
-          "date": "2026-09-08",
-          "label": "mar",
-          "revenue": 0,
-          "count": 0
-        },
-        {
-          "date": "2026-09-09",
-          "label": "mié",
-          "revenue": 5052932.8,
-          "count": 28
         }
       ],
       "monthlyTrend": [

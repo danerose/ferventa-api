@@ -87,8 +87,8 @@ describe('SalesService', () => {
               { _id: 'transfer', revenue: 1154960654, count: 6 },
             ],
             dailyStats: [
-              { _id: '2026-09-05', revenue: 120000, count: 1 },
-              { _id: '2026-09-09', revenue: 5328644604, count: 28 },
+              { _id: 7, revenue: 120000, count: 1 }, // Sábado
+              { _id: 4, revenue: 5328644604, count: 28 }, // Miércoles
             ],
             itemBreakdown: [
               {
@@ -137,14 +137,16 @@ describe('SalesService', () => {
       expect(result.paymentMethods.transfer.count).toBe(6);
       expect(result.paymentMethods.transfer.percentage).toBe(21.7);
 
-      // 3. Daily series validation (should have all 7 days from 2026-09-03 to 2026-09-09)
+      // 3. Daily series validation (should have 7 days: lun, mar, mié, jue, vie, sáb, dom)
       expect(result.dailyRevenue.length).toBe(7);
-      expect(result.dailyRevenue[0].date).toBe('2026-09-03');
+      expect(result.dailyRevenue[0].day).toBe('lun');
       expect(result.dailyRevenue[0].revenue).toBe(0);
-      expect(result.dailyRevenue[2].date).toBe('2026-09-05');
-      expect(result.dailyRevenue[2].revenue).toBe(120000);
-      expect(result.dailyRevenue[6].date).toBe('2026-09-09');
-      expect(result.dailyRevenue[6].revenue).toBe(5328644604);
+      expect(result.dailyRevenue[2].day).toBe('mié');
+      expect(result.dailyRevenue[2].revenue).toBe(5328644604);
+      expect(result.dailyRevenue[5].day).toBe('sáb');
+      expect(result.dailyRevenue[5].revenue).toBe(120000);
+      expect(result.dailyRevenue[6].day).toBe('dom');
+      expect(result.dailyRevenue[6].revenue).toBe(0);
 
       // 4. Monthly trend validation (should have exactly 6 months)
       expect(result.monthlyTrend.length).toBe(6);
