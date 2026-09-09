@@ -105,3 +105,6 @@ export class Sale {
 }
 
 export const SaleSchema = SchemaFactory.createForClass(Sale);
+
+SaleSchema.index({ branch: 1, isCancelled: 1, createdAt: -1 });
+SaleSchema.index({ branch: 1, paymentMethod: 1, createdAt: -1 });

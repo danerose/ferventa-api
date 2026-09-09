@@ -20,6 +20,7 @@ import {
 import { SalesService } from './sales.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { CancelSaleDto } from './dto/cancel-sale.dto';
+import { SalesStatsQueryDto } from './dto/sales-stats-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -91,6 +92,12 @@ export class SalesController {
     description: 'Filtrar por si incluye servicios',
   })
   @ApiQuery({
+    name: 'paymentMethod',
+    required: false,
+    enum: ['cash', 'card', 'transfer'],
+    description: 'Filtrar por método de pago',
+  })
+  @ApiQuery({
     name: 'startDate',
     required: false,
     description: 'Fecha inicio (YYYY-MM-DD) en zona local del cliente',
@@ -112,6 +119,7 @@ export class SalesController {
     @Query('customerId') customerId?: string,
     @Query('isCancelled') isCancelled?: string,
     @Query('hasService') hasService?: string,
+    @Query('paymentMethod') paymentMethod?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('utcOffsetMinutes') utcOffsetMinutes?: string,
@@ -119,7 +127,7 @@ export class SalesController {
     let isCancelledBool: boolean | undefined = undefined;
     if (isCancelled === 'true') {
       isCancelledBool = true;
-    } else if (isCancelled === 'only_active') {
+    } else if (isCancelled === 'false' || isCancelled === 'only_active') {
       isCancelledBool = false;
     }
 
@@ -131,10 +139,28 @@ export class SalesController {
       customerId,
       isCancelled: isCancelledBool,
       hasService: hasServiceBool,
+      paymentMethod,
       startDate,
       endDate,
       utcOffsetMinutes: offsetMinutes,
     });
+  }
+
+  @Get('stats')
+  @Roles('admin', 'seller')
+  @ApiOperation({
+    summary:
+      'Obtener estadísticas y métricas del dashboard de ventas (ingresos, ticket promedio, métodos de pago, gráficas y servicios vs productos)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Métricas del dashboard obtenidas exitosamente.',
+  })
+  getStats(
+    @BranchId() branchId: string,
+    @Query() query: SalesStatsQueryDto,
+  ) {
+    return this.salesService.getStats(branchId, query);
   }
 
   @Get(':id')

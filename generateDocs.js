@@ -105,7 +105,73 @@ fetch('http://localhost:3000/api/docs-json')
              };
              
              // Hardcode auth/login specifically since Nest swagger doesn't easily capture custom objects unless modeled
-             if (ep.path === '/auth/login' && status === '200') {
+             if (ep.path === '/sales/stats' && status === '200') {
+            wrapped.data = {
+              summary: {
+                totalRevenue: 5328764604,
+                totalSales: 29,
+                averageTicket: 183750503.59,
+                subtotal: 5328764604,
+                discount: 0,
+                mainPaymentMethod: 'cash',
+                mainPaymentMethodLabel: 'Efectivo',
+              },
+              paymentMethods: {
+                cash: {
+                  revenue: 3916709859,
+                  count: 17,
+                  percentage: 73.5,
+                  label: 'Efectivo',
+                },
+                card: {
+                  revenue: 257094091,
+                  count: 6,
+                  percentage: 4.8,
+                  label: 'Tarjeta',
+                },
+                transfer: {
+                  revenue: 1154960654,
+                  count: 6,
+                  percentage: 21.7,
+                  label: 'Transferencia',
+                },
+              },
+              dailyRevenue: [
+                { date: '2026-09-03', label: 'jue', revenue: 0, count: 0 },
+                { date: '2026-09-04', label: 'vie', revenue: 0, count: 0 },
+                { date: '2026-09-05', label: 'sáb', revenue: 120000, count: 1 },
+                { date: '2026-09-06', label: 'dom', revenue: 0, count: 0 },
+                { date: '2026-09-07', label: 'lun', revenue: 0, count: 0 },
+                { date: '2026-09-08', label: 'mar', revenue: 0, count: 0 },
+                { date: '2026-09-09', label: 'mié', revenue: 5052932.8, count: 28 },
+              ],
+              monthlyTrend: [
+                { month: '2026-04', label: 'abr', revenue: 0, count: 0 },
+                { month: '2026-05', label: 'may', revenue: 0, count: 0 },
+                { month: '2026-06', label: 'jun', revenue: 0, count: 0 },
+                { month: '2026-07', label: 'jul', revenue: 0, count: 0 },
+                { month: '2026-08', label: 'ago', revenue: 0, count: 0 },
+                { month: '2026-09', label: 'sep', revenue: 5328764604, count: 29 },
+              ],
+              itemTypesBreakdown: {
+                services: {
+                  revenue: 1500000000,
+                  itemsCount: 12,
+                  salesCount: 10,
+                  revenuePercentage: 28.1,
+                },
+                products: {
+                  revenue: 3828764604,
+                  itemsCount: 45,
+                  salesCount: 22,
+                  revenuePercentage: 71.9,
+                },
+              },
+            };
+            wrapped.message = 'Métricas del dashboard obtenidas exitosamente.';
+          }
+
+          if (ep.path === '/auth/login' && status === '200') {
                wrapped.data = {
                  accessToken: "eyJhbGciOiJIUzI1...",
                  refreshToken: "eyJhbGciOiJIUzI1...",

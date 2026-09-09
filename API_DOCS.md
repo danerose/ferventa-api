@@ -185,8 +185,8 @@ Base URL: `/api`
 **Request Body**:
 ```json
 {
-  "currentPassword": "PasswordActual123!",
-  "newPassword": "NuevaPasswordSegura456!"
+  "currentPassword": "string",
+  "newPassword": "string"
 }
 ```
 
@@ -196,7 +196,7 @@ Base URL: `/api`
   {
     "success": true,
     "data": null,
-    "message": "Contraseña actualizada exitosamente"
+    "message": "Contraseña actualizada exitosamente."
   }
   ```
 - `400`: Contraseña actual incorrecta o nueva contraseña inválida.
@@ -207,35 +207,22 @@ Base URL: `/api`
 **Summary**: Actualizar o restablecer la contraseña de un usuario por su ID (Solo Admin)
 
 **Parameters**:
-- `id` (path): ID del usuario (Required)
+- `id` (path):  (Required)
 
 **Request Body**:
 ```json
 {
-  "newPassword": "PasswordOpcional123!"
+  "newPassword": "string"
 }
 ```
-*(Opcional: Si `newPassword` se omite o viene vacío `""`, el API autogenera una nueva contraseña).*
 
 **Responses**:
-- `200`: Contraseña actualizada exitosamente.
+- `200`: Contraseña actualizada exitosamente. Devuelve el usuario, contraseña asignada, mensaje y enlace de WhatsApp.
   ```json
   {
     "success": true,
-    "data": {
-      "user": {
-        "id": "60d5ec49c6d48227b409748b",
-        "name": "Alexis Rojas",
-        "username": "arojas",
-        "email": "alexis@ferventa.com",
-        "defaultPassword": "PasswordOpcional123!",
-        "isDefaultPassword": true
-      },
-      "tempPassword": "PasswordOpcional123!",
-      "message": "¡Hola Alexis Rojas! Tu contraseña en Ferventa ha sido actualizada por el administrador...",
-      "whatsappUrl": "https://api.whatsapp.com/send?phone=528118765432&text=..."
-    },
-    "message": "Contraseña restablecida exitosamente"
+    "data": null,
+    "message": "Contraseña actualizada exitosamente. Devuelve el usuario, contraseña asignada, mensaje y enlace de WhatsApp."
   }
   ```
 - `404`: Usuario no encontrado.
@@ -471,8 +458,8 @@ Base URL: `/api`
 **Request Body**:
 ```json
 {
-  "currentPassword": "PasswordActual123!",
-  "newPassword": "NuevaPasswordSegura456!"
+  "currentPassword": "string",
+  "newPassword": "string"
 }
 ```
 
@@ -482,7 +469,7 @@ Base URL: `/api`
   {
     "success": true,
     "data": null,
-    "message": "Contraseña actualizada exitosamente"
+    "message": "Contraseña actualizada exitosamente."
   }
   ```
 - `400`: Contraseña actual incorrecta o nueva contraseña inválida.
@@ -505,8 +492,7 @@ Base URL: `/api`
       "branches": [
         "6a5e6e9a0..."
       ],
-      "lastLoginAt": "2026-09-04T02:56:01.273Z",
-      "isDefaultPassword": false
+      "lastLoginAt": "2026-09-09T19:05:06.821Z"
     },
     "message": "Perfil retornado con éxito"
   }
@@ -997,7 +983,8 @@ Base URL: `/api`
   "providerId": "string",
   "type": "in",
   "quantity": 0,
-  "reason": "string"
+  "reason": "string",
+  "branchId": "string"
 }
 ```
 
@@ -1030,6 +1017,24 @@ Base URL: `/api`
 
 ### [GET] /inventory/products/{id}/movements
 **Summary**: Ver movimientos de stock de un producto específico
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [DELETE] /inventory/movements/{id}
+**Summary**: Eliminar o revertir un movimiento de stock (Admin / Warehouse)
 
 **Parameters**:
 - `id` (path):  (Required)
@@ -1325,6 +1330,7 @@ Base URL: `/api`
   "serviceRequested": "string",
   "scheduledAt": "string",
   "notes": "string",
+  "receptionNotes": "string",
   "duration": 0,
   "assignedMechanic": "string",
   "branchName": "string",
@@ -1523,6 +1529,7 @@ Base URL: `/api`
   "serviceRequested": "string",
   "scheduledAt": "string",
   "notes": "string",
+  "receptionNotes": "string",
   "duration": 0,
   "assignedMechanic": "string",
   "branchName": "string",
@@ -1600,6 +1607,7 @@ Base URL: `/api`
   "scheduledAt": "string",
   "status": "pending",
   "notes": "string",
+  "receptionNotes": "string",
   "duration": 0,
   "assignedMechanic": "string",
   "branchName": "string"
@@ -1717,24 +1725,32 @@ Base URL: `/api`
 **Summary**: Recibir vehículo para una cita agendada (Check-in rápido en sucursal con notas de recepción)
 
 **Parameters**:
-- `id` (path): ID de la cita (Required)
-
-**Request Body**:
-```json
-{
-  "receptionNotes": "Deja llaves, 1/2 tanque de gasolina, rayón en puerta derecha"
-}
-```
+- `id` (path):  (Required)
 
 **Responses**:
 - `200`: 
   ```json
   {
     "success": true,
-    "data": {
-      "appointment": { ... },
-      "maintenance": { ... }
-    },
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [PATCH] /appointments/{id}/no-show
+**Summary**: Marcar cita como No Asistió (No-show)
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
     "message": "Success"
   }
   ```
@@ -1773,6 +1789,7 @@ Base URL: `/api`
   "customerEmail": "string",
   "whatsappId": "string",
   "customerId": "string",
+  "vehicleId": "string",
   "vehicle": null,
   "serviceRequested": "string",
   "notes": "string",
@@ -1803,7 +1820,10 @@ Base URL: `/api`
   "vehicleId": "string",
   "laborCost": 0,
   "notes": "string",
-  "appointmentId": "string"
+  "appointmentId": "string",
+  "receptionNotes": "string",
+  "assignedMechanic": "string",
+  "saleId": "string"
 }
 ```
 
@@ -1823,136 +1843,15 @@ Base URL: `/api`
 **Summary**: Listar órdenes de mantenimiento con filtros avanzados de estado, fechas y vistas
 
 **Parameters**:
-- `customerId` (query): Filtrar por ID de cliente (Opcional)
-- `status` (query): Filtrar por estado específico (ej. `in_progress` o lista separada por comas `in_progress,completed`) (Opcional)
-- `scope` (query): Vista predefinida (Opcional):
-  - `active`: Vehículos actualmente en taller (estados: `not_started`, `in_progress`, `completed`).
-  - `delivered_recent`: Órdenes entregadas (`status: 'delivered'`).
-    - **Sin `from` ni `to`**: Retorna vehículos entregados en una **ventana móvil de los últimos 7 días** (desde `now - 7 días` hasta el momento actual). No requiere enviar parámetros de fecha.
-      *Ejemplo:* `GET /maintenance?scope=delivered_recent`
-    - **Con `from` y `to`**: Filtra órdenes entregadas dentro de dicho rango en el campo indicado (`dateField=deliveredAt`), **sin** imponer el límite fijo de 7 días. Esto permite consultar semanas pasadas o cualquier periodo histórico en la vista de entregados.
-      *Ejemplo:* `GET /maintenance?scope=delivered_recent&from=2026-08-31&to=2026-09-05&dateField=deliveredAt`
-  - `history`: Historial general de órdenes (todas las órdenes excepto `awaiting_appointment`). Permite combinar con `status`, `from`, `to`, `search`, etc.
-- `from` (query): Fecha inicio (YYYY-MM-DD) (Opcional)
-- `to` (query): Fecha fin (YYYY-MM-DD) (Opcional)
-- `dateField` (query): Campo de fecha a filtrar (`receptionDate`, `completedAt`, `deliveredAt`, `createdAt`, `startDate`, `endDate`) (Opcional, default: `receptionDate`)
-- `search` (query): Búsqueda difusa (tolerante a errores) por cliente, teléfono, placas, modelo o notas (Opcional)
-
-> **💡 Guía de Integración para Frontend (Pestaña "Entregados"):**
-> 
-> Existen 2 opciones válidas según cómo diseñes la UX:
-> 
-> 1. **Opción 1: Vista "Últimos 7 días móviles" (Recomendada si no se requiere navegador de semanas):**
->    - Enviar únicamente: `GET /maintenance?scope=delivered_recent` (NO enviar `from`, `to` ni `dateField`).
->    - Muestra todo lo entregado en los últimos 7 días corridos. Si hoy es lunes, una moto entregada el sábado o domingo aparecerá directamente sin necesidad de navegar a la semana anterior.
-> 
-> 2. **Opción 2: Vista "Navegador Semanal" (Lunes a Sábado):**
->    - Enviar: `GET /maintenance?scope=delivered_recent&from=YYYY-MM-DD&to=YYYY-MM-DD&dateField=deliveredAt`.
->    - **Regla de fechas:** Si una moto se entregó un sábado (ej. 5 de septiembre), pertenece a la semana laboral anterior (Lun 31 Ago – Sáb 5 Sep). Si el usuario se encuentra parado en el lunes siguiente (7 de septiembre), el rango de la semana actual es 7 Sep – 12 Sep, por lo que para ver la entrega del sábado el usuario debe presionar el botón *"Semana anterior"* en la interfaz.
+- `customerId` (query):  (Required)
+- `status` (query):  (Required)
+- `scope` (query):  (Required)
+- `from` (query):  (Required)
+- `to` (query):  (Required)
+- `search` (query):  (Required)
 
 **Responses**:
 - `200`: 
-  ```json
-  {
-    "success": true,
-    "data": [
-      {
-        "_id": "66d9b231901a87b801234567",
-        "customer": {
-          "_id": "66d9b1... ",
-          "name": "Juan Pérez",
-          "phone": "5512345678"
-        },
-        "vehicle": {
-          "_id": "66d9b2... ",
-          "brand": "Italika",
-          "model": "FT150",
-          "serialNumberLastFour": "1234"
-        },
-        "status": "in_progress",
-        "receptionDate": "2026-09-05T10:00:00.000Z",
-        "startedAt": "2026-09-05T10:30:00.000Z",
-        "completedAt": null,
-        "notifiedAt": null,
-        "deliveredAt": null,
-        "receptionNotes": "Deja llaves y 1/2 tanque de gasolina",
-        "diagnosticNotes": [
-          {
-            "note": "Se detectó fuga en retén de cigüeñal",
-            "createdAt": "2026-09-05T11:00:00.000Z",
-            "createdBy": { "_id": "...", "name": "Mecánico Roberto" }
-          }
-        ],
-        "statusHistory": [
-          {
-            "status": "not_started",
-            "changedAt": "2026-09-05T10:00:00.000Z",
-            "notes": "Recepción directa en sucursal (Walk-in)"
-          },
-          {
-            "status": "in_progress",
-            "changedAt": "2026-09-05T10:30:00.000Z",
-            "notes": "Mecánico inició desmontaje"
-          }
-        ],
-        "laborCost": 500,
-        "itemsUsed": [],
-        "notes": "Servicio de frenos y afinación"
-      }
-    ],
-    "message": "Success"
-  }
-  ```
-
----
-
-### [GET] /maintenance/{id}
-**Summary**: Obtener detalle de una orden de mantenimiento por ID
-
-**Parameters**:
-- `id` (path): ID de la orden de mantenimiento (Required)
-
-**Responses**:
-- `200`: Retorna la orden de mantenimiento completa con `customer`, `vehicle`, `createdBy`, `appointment`, `itemsUsed`, `statusHistory` y `diagnosticNotes`.
-
----
-
-### [PATCH] /maintenance/{id}
-**Summary**: Actualizar estado, mano de obra o notas de una orden
-
-**Parameters**:
-- `id` (path): ID de la orden de mantenimiento (Required)
-
-**Request Body**:
-```json
-{
-  "status": "completed",
-  "laborCost": 1200,
-  "notes": "Servicio concluido con éxito",
-  "receptionNotes": "Deja llaves y 1/2 tanque"
-}
-```
-
-**Responses**:
-- `200`: Orden de mantenimiento actualizada con timestamps de hitos (`startedAt`, `completedAt`, `deliveredAt`) y nuevo registro en `statusHistory`.
-
----
-
-### [PATCH] /maintenance/{id}/notify
-**Summary**: Registrar que se notificó al cliente que su vehículo está listo para recolección
-
-**Parameters**:
-- `id` (path): ID de la orden de mantenimiento (Required)
-
-**Request Body**:
-```json
-{
-  "notes": "Se notificó al cliente vía llamada telefónica / WhatsApp"
-}
-```
-
-**Responses**:
-- `200`: Orden actualizada con `notifiedAt: Date` y nuevo registro en `statusHistory`.
   ```json
   {
     "success": true,
@@ -1963,21 +1862,44 @@ Base URL: `/api`
 
 ---
 
-### [POST] /maintenance/{id}/notes
-**Summary**: Agregar nota de diagnóstico o registro de fallas encontradas durante el mantenimiento
+### [GET] /maintenance/{id}
+**Summary**: Obtener detalle de una orden de mantenimiento por ID
 
 **Parameters**:
-- `id` (path): ID de la orden de mantenimiento (Required)
+- `id` (path):  (Required)
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [PATCH] /maintenance/{id}
+**Summary**: Actualizar estado o mano de obra de una orden
+
+**Parameters**:
+- `id` (path):  (Required)
 
 **Request Body**:
 ```json
 {
-  "note": "Se detectó fuga de aceite en retén y desgaste excesivo en balatas traseras"
+  "status": "awaiting_appointment",
+  "laborCost": 0,
+  "notes": "string",
+  "receptionNotes": "string",
+  "assignedMechanic": "string",
+  "saleId": {}
 }
 ```
 
 **Responses**:
-- `201`: Retorna la orden actualizada con la nueva nota en el arreglo `diagnosticNotes` (incluye fecha y usuario autor).
+- `200`: 
   ```json
   {
     "success": true,
@@ -1996,6 +1918,93 @@ Base URL: `/api`
 
 **Responses**:
 - `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [PATCH] /maintenance/{id}/notify
+**Summary**: Registrar que se notificó al cliente que su vehículo está listo
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [PATCH] /maintenance/{id}/link-sale
+**Summary**: Vincular un ticket de compra / venta POS a la orden de mantenimiento
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Request Body**:
+```json
+{
+  "saleId": "string",
+  "folio": "string"
+}
+```
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [PATCH] /maintenance/{id}/unlink-sale
+**Summary**: Desvincular el ticket de compra / venta POS de la orden de mantenimiento
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [POST] /maintenance/{id}/notes
+**Summary**: Agregar nota de diagnóstico/falla detectada durante el servicio
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Request Body**:
+```json
+{
+  "note": "string"
+}
+```
+
+**Responses**:
+- `201`: 
   ```json
   {
     "success": true,
@@ -2041,6 +2050,280 @@ Base URL: `/api`
 **Request Body**:
 **Responses**:
 - `201`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+## Ventas (POS)
+
+### [POST] /sales
+**Summary**: Registrar una venta (Pago en efectivo o con tarjeta Mercado Pago Point)
+
+**Request Body**:
+```json
+{
+  "quoteId": "string",
+  "customerId": "string",
+  "items": [
+    {
+      "type": "product",
+      "productId": "string",
+      "serviceId": "string",
+      "name": "string",
+      "quantity": 0,
+      "unitPrice": 0,
+      "discount": 0
+    }
+  ],
+  "globalDiscount": 0,
+  "paymentMethod": "cash",
+  "paymentReference": "string"
+}
+```
+
+**Responses**:
+- `201`: Venta registrada exitosamente.
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Venta registrada exitosamente."
+  }
+  ```
+
+---
+
+### [GET] /sales
+**Summary**: Listar todas las ventas
+
+**Parameters**:
+- `customerId` (query): Filtrar por ID del cliente 
+- `isCancelled` (query): Filtrar por estado de cancelación 
+- `hasService` (query): Filtrar por si incluye servicios 
+- `paymentMethod` (query): Filtrar por método de pago 
+- `startDate` (query): Fecha inicio (YYYY-MM-DD) en zona local del cliente 
+- `endDate` (query): Fecha fin (YYYY-MM-DD) en zona local del cliente 
+- `utcOffsetMinutes` (query): Offset UTC del cliente en minutos (ej: 300 para UTC-5). Equivale a Date.getTimezoneOffset() 
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [POST] /sales/{id}/cancel
+**Summary**: Cancelar/anular una venta y regresar stock al almacén (Solo Admin)
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Request Body**:
+```json
+{
+  "reason": "string"
+}
+```
+
+**Responses**:
+- `200`: Venta cancelada y stock devuelto exitosamente.
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Venta cancelada y stock devuelto exitosamente."
+  }
+  ```
+
+---
+
+### [GET] /sales/stats
+**Summary**: Obtener estadísticas y métricas del dashboard de ventas (ingresos, ticket promedio, métodos de pago, gráficas y servicios vs productos)
+
+**Parameters**:
+- `startDate` (query): Fecha de inicio (YYYY-MM-DD) en la zona horaria del cliente 
+- `endDate` (query): Fecha de fin (YYYY-MM-DD) en la zona horaria del cliente 
+- `utcOffsetMinutes` (query): Offset UTC en minutos (ej: 300 para UTC-5 / América). Equivale a new Date().getTimezoneOffset() 
+- `isCancelled` (query): Filtrar por estatus de cancelación (true, false o only_active) 
+- `paymentMethod` (query): Filtrar por método de pago específico 
+- `customerId` (query): Filtrar por cliente específico 
+- `branchId` (query): ID de la sucursal (por defecto se toma del header x-branch-id) 
+
+**Responses**:
+- `200`: Métricas del dashboard obtenidas exitosamente.
+  ```json
+  {
+    "success": true,
+    "data": {
+      "summary": {
+        "totalRevenue": 5328764604,
+        "totalSales": 29,
+        "averageTicket": 183750503.59,
+        "subtotal": 5328764604,
+        "discount": 0,
+        "mainPaymentMethod": "cash",
+        "mainPaymentMethodLabel": "Efectivo"
+      },
+      "paymentMethods": {
+        "cash": {
+          "revenue": 3916709859,
+          "count": 17,
+          "percentage": 73.5,
+          "label": "Efectivo"
+        },
+        "card": {
+          "revenue": 257094091,
+          "count": 6,
+          "percentage": 4.8,
+          "label": "Tarjeta"
+        },
+        "transfer": {
+          "revenue": 1154960654,
+          "count": 6,
+          "percentage": 21.7,
+          "label": "Transferencia"
+        }
+      },
+      "dailyRevenue": [
+        {
+          "date": "2026-09-03",
+          "label": "jue",
+          "revenue": 0,
+          "count": 0
+        },
+        {
+          "date": "2026-09-04",
+          "label": "vie",
+          "revenue": 0,
+          "count": 0
+        },
+        {
+          "date": "2026-09-05",
+          "label": "sáb",
+          "revenue": 120000,
+          "count": 1
+        },
+        {
+          "date": "2026-09-06",
+          "label": "dom",
+          "revenue": 0,
+          "count": 0
+        },
+        {
+          "date": "2026-09-07",
+          "label": "lun",
+          "revenue": 0,
+          "count": 0
+        },
+        {
+          "date": "2026-09-08",
+          "label": "mar",
+          "revenue": 0,
+          "count": 0
+        },
+        {
+          "date": "2026-09-09",
+          "label": "mié",
+          "revenue": 5052932.8,
+          "count": 28
+        }
+      ],
+      "monthlyTrend": [
+        {
+          "month": "2026-04",
+          "label": "abr",
+          "revenue": 0,
+          "count": 0
+        },
+        {
+          "month": "2026-05",
+          "label": "may",
+          "revenue": 0,
+          "count": 0
+        },
+        {
+          "month": "2026-06",
+          "label": "jun",
+          "revenue": 0,
+          "count": 0
+        },
+        {
+          "month": "2026-07",
+          "label": "jul",
+          "revenue": 0,
+          "count": 0
+        },
+        {
+          "month": "2026-08",
+          "label": "ago",
+          "revenue": 0,
+          "count": 0
+        },
+        {
+          "month": "2026-09",
+          "label": "sep",
+          "revenue": 5328764604,
+          "count": 29
+        }
+      ],
+      "itemTypesBreakdown": {
+        "services": {
+          "revenue": 1500000000,
+          "itemsCount": 12,
+          "salesCount": 10,
+          "revenuePercentage": 28.1
+        },
+        "products": {
+          "revenue": 3828764604,
+          "itemsCount": 45,
+          "salesCount": 22,
+          "revenuePercentage": 71.9
+        }
+      }
+    },
+    "message": "Métricas del dashboard obtenidas exitosamente."
+  }
+  ```
+
+---
+
+### [GET] /sales/{id}
+**Summary**: Ver detalle completo de una venta por ID
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /sales/ticket/{query}
+**Summary**: Obtener la información del ticket de venta por ID o Folio
+
+**Parameters**:
+- `query` (path):  (Required)
+
+**Responses**:
+- `200`: 
   ```json
   {
     "success": true,
@@ -2143,129 +2426,6 @@ Base URL: `/api`
   "status": "pending"
 }
 ```
-
-**Responses**:
-- `200`: 
-  ```json
-  {
-    "success": true,
-    "data": null,
-    "message": "Success"
-  }
-  ```
-
----
-
-## Ventas (POS)
-
-### [POST] /sales
-**Summary**: Registrar una venta (Pago en efectivo o con tarjeta Mercado Pago Point)
-
-**Request Body**:
-```json
-{
-  "quoteId": "string",
-  "customerId": "string",
-  "items": [
-    {
-      "type": "product",
-      "productId": "string",
-      "serviceId": "string",
-      "name": "string",
-      "quantity": 0,
-      "unitPrice": 0,
-      "discount": 0
-    }
-  ],
-  "globalDiscount": 0,
-  "paymentMethod": "cash",
-  "paymentReference": "string"
-}
-```
-
-**Responses**:
-- `201`: Venta registrada exitosamente.
-  ```json
-  {
-    "success": true,
-    "data": null,
-    "message": "Venta registrada exitosamente."
-  }
-  ```
-
----
-
-### [GET] /sales
-**Summary**: Listar todas las ventas
-
-**Parameters**:
-- `customerId` (query): Filtrar por ID del cliente 
-- `isCancelled` (query): Filtrar por estado de cancelación 
-- `hasService` (query): Filtrar por si incluye servicios 
-- `startDate` (query): Fecha inicio (YYYY-MM-DD) en zona local del cliente 
-- `endDate` (query): Fecha fin (YYYY-MM-DD) en zona local del cliente 
-- `utcOffsetMinutes` (query): Offset UTC del cliente en minutos (ej: 300 para UTC-5). Equivale a Date.getTimezoneOffset() 
-
-**Responses**:
-- `200`: 
-  ```json
-  {
-    "success": true,
-    "data": null,
-    "message": "Success"
-  }
-  ```
-
----
-
-### [POST] /sales/{id}/cancel
-**Summary**: Cancelar/anular una venta y regresar stock al almacén (Solo Admin)
-
-**Parameters**:
-- `id` (path):  (Required)
-
-**Request Body**:
-```json
-{
-  "reason": "string"
-}
-```
-
-**Responses**:
-- `200`: Venta cancelada y stock devuelto exitosamente.
-  ```json
-  {
-    "success": true,
-    "data": null,
-    "message": "Venta cancelada y stock devuelto exitosamente."
-  }
-  ```
-
----
-
-### [GET] /sales/{id}
-**Summary**: Ver detalle completo de una venta por ID
-
-**Parameters**:
-- `id` (path):  (Required)
-
-**Responses**:
-- `200`: 
-  ```json
-  {
-    "success": true,
-    "data": null,
-    "message": "Success"
-  }
-  ```
-
----
-
-### [GET] /sales/ticket/{query}
-**Summary**: Obtener la información del ticket de venta por ID o Folio
-
-**Parameters**:
-- `query` (path):  (Required)
 
 **Responses**:
 - `200`: 
@@ -2479,12 +2639,7 @@ Base URL: `/api`
   ```json
   {
     "success": true,
-    "data": {
-      "not_started": { "count": 3, "avgLaborCost": 350 },
-      "in_progress": { "count": 2, "avgLaborCost": 600 },
-      "completed": { "count": 4, "avgLaborCost": 500 },
-      "delivered": { "count": 15, "avgLaborCost": 550 }
-    },
+    "data": null,
     "message": "Success"
   }
   ```
@@ -2495,45 +2650,15 @@ Base URL: `/api`
 **Summary**: Obtener métricas de tiempos, promedios de estancia y vehículos pendientes de recolección
 
 **Parameters**:
-- `startDate` (query): Fecha inicio (YYYY-MM-DD) (Opcional)
-- `endDate` (query): Fecha fin (YYYY-MM-DD) (Opcional)
+- `startDate` (query):  
+- `endDate` (query):  
 
 **Responses**:
-- `200`:
+- `200`: 
   ```json
   {
     "success": true,
-    "data": {
-      "volume": {
-        "totalReceived": 24,
-        "totalCompleted": 20,
-        "totalDelivered": 16,
-        "pendingPickupCount": 4
-      },
-      "averages": {
-        "avgQueueHours": 2.5,
-        "avgQueueDays": 0.1,
-        "avgWorkHours": 4.8,
-        "avgWorkDays": 0.2,
-        "avgPickupHours": 48.0,
-        "avgPickupDays": 2.0,
-        "avgTotalStayHours": 55.3,
-        "avgTotalStayDays": 2.3
-      },
-      "pendingPickupVehicles": [
-        {
-          "_id": "66d9b231901a87b801234567",
-          "customerName": "Juan Pérez",
-          "customerPhone": "5512345678",
-          "vehicle": "Italika FT150 (1234)",
-          "completedAt": "2026-09-01T15:00:00.000Z",
-          "notifiedAt": "2026-09-01T15:30:00.000Z",
-          "daysWaiting": 4,
-          "daysSinceNotified": 4,
-          "notes": "Listo para entrega, cambio de balatas"
-        }
-      ]
-    },
+    "data": null,
     "message": "Success"
   }
   ```
@@ -2571,6 +2696,24 @@ Base URL: `/api`
     "success": true,
     "data": null,
     "message": "Success"
+  }
+  ```
+
+---
+
+### [GET] /branches/user
+**Summary**: Obtener las sucursales asignadas al usuario autenticado
+
+**Parameters**:
+- `isActive` (query):  (Required)
+
+**Responses**:
+- `200`: Sucursales del usuario retornadas con éxito.
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Sucursales del usuario retornadas con éxito."
   }
   ```
 
