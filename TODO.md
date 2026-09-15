@@ -1,160 +1,341 @@
-# 📋 Lista Maestra de Tareas (TODO) — Feedback y Requerimientos del Cliente
+# 📋 Guía Técnica y Lista de Tareas (TODO) — Ferventa
 
-Este documento consolida y estructura el feedback recibido del cliente para **Ferventa (Taller & POS)**, separando las responsabilidades de **Backend (API)** y **Frontend (Web)**, e indicando el estado actual de cada tarea.
+Este documento consolida la arquitectura de **Recepciones de Mercancía, Cajas en Bodega, Códigos QR, FIFO y Unificación de Precios**, junto con el código y las especificaciones exactas para el desarrollador de **Frontend (`ferventa-web`)**.
 
 ---
 
 ## 🧭 Resumen de Estatus
 
-* **Backend (`ferventa-api`)**: La arquitectura, modelos, endpoints de seguridad por rol, bitácora de auditoría, recepciones en borrador, cajas QR, kiosco con PIN y deduplicación inteligente de vehículos ya están implementados y listos para consumo.
-* **Frontend (`ferventa-web`)**: Pendiente de integrar las vistas de Kiosco, impresión de tickets QR, botón 4% en POS, corrección de selectores y diseño móvil para mecánico y almacenista.
+* **Backend (`ferventa-api`)**: 100% implementado y listo para consumo. Modelos, endpoints de recepciones en borrador, aprobación, generación de `boxCode`, apertura de cajas, unificación de precios y registro en Kardex.
+* **Frontend (`ferventa-web`)**: Pendiente de integrar los formularios, impresión de etiquetas QR y acción de apertura de caja.
 
 ---
 
-## 1. 👥 Perfiles, Permisos y Seguridad por Rol
+## 1. 💡 Arquitectura: ¿Cómo funciona el Inventario, Cajas y FIFO?
 
-### 👨‍🔧 Rol Mecánico
-- [x] **[API] Aislamiento de órdenes:** En `GET /maintenance`, el mecánico únicamente puede ver las órdenes que tiene asignadas a su nombre (`assignedMechanic`).
-- [x] **[API] Operativa permitida:**
-  - [x] Recepción directa en taller (Walk-in) en `POST /maintenance/direct-reception`.
-  - [x] Check-in de citas agendadas en `PATCH /appointments/:id/check-in`.
-  - [x] Subir evidencias fotográficas y notas de diagnóstico.
-- [x] **[API] Restricciones estrictas:**
-  - [x] Bloqueo para reasignar mecánico (`403 Forbidden`).
-  - [x] Bloqueo para modificar costo de mano de obra (`laborCost`) (`403 Forbidden`).
-  - [x] Bloqueo para vincular o alterar venta/cobro (`saleId`).
-  - [x] Bloqueo para enviar notificaciones de WhatsApp al cliente.
-- [ ] **[FRONT] Vista móvil optimizada para Mecánico:**
-  - [ ] Diseñar vista móvil simplificada enfocada en la tarjeta del vehículo, checklist de recepción, subida rápida de fotos y notas de avance sin recargar de elementos innecesarios.
-  - [ ] Ocultar opciones de cobro, reasignación y notificación en el drawer/detalle de orden cuando el usuario sea mecánico.
-
----
-
-### 🧑‍💼 Rol Vendedor
-- [x] **[API] Gestión de Citas:** Permisos para agendar, reagendar, cancelar (`PATCH /appointments/:id/cancel`) y marcar *No Asistió*.
-- [x] **[API] Taller & Mantenimiento:** Consulta de vehículos y asignación de mecánico.
-- [x] **[API] Punto de Venta (POS):** Permiso para venta directa, cobro y levantamiento de pedidos especiales (`/orders`).
-- [x] **[API] Restricciones de Catálogo e Inventario:**
-  - [x] Puede dar de alta marcas y categorías.
-  - [x] No puede modificar ni eliminar productos del catálogo existente.
-  - [x] No puede recibir mercancía directo a stock activo (solo registra en `draft`).
-  - [x] No puede eliminar movimientos de Kardex.
-  - [x] No puede administrar usuarios.
-- [ ] **[FRONT] Ajuste de Tema en Perfil de Vendedor:**
-  - [ ] Permitir alternar entre tema Dark y Light directamente desde su barra de ajustes / perfil.
+1. **Piso de Venta (Mostrador) vs Bodega:**
+   * El campo `product.stock` representa **exclusivamente el mostrador** (lo vendible en el POS).
+   * Al recibir mercancía, las piezas quedan como **cajas selladas en bodega** (`isBoxSealed: true`), por lo que el stock de mostrador **no aumenta de inmediato**.
+2. **Nuevo Precio de Venta (`sellingPrice`):**
+   * Al capturar la recepción se asigna el costo (`costPrice`) y opcionalmente el **Nuevo Precio de Venta al Público (`sellingPrice`)**.
+   * Mientras la caja esté sellada en bodega, el mostrador sigue vendiendo el remanente al precio anterior.
+3. **Cajas independientes por producto:**
+   * Si en una remisión recibes Aceite y Bujías, se generan dos códigos de caja independientes (ej. `BOX-...-1-042` para Aceite y `BOX-...-2-891` para Bujías).
+   * Puedes abrir únicamente la caja de Bujías y dejar el Aceite guardado en bodega.
+4. **Apertura de Caja (`openBox` / FIFO):**
+   * Al escanear o presionar "Abrir Caja" con el `boxCode`:
+     * Suma la cantidad de piezas al `product.stock` de mostrador.
+     * Actualiza el `product.sellingPrice` y `costPrice` con los valores del nuevo lote.
+     * Marca la caja como abierta (`isBoxSealed: false`) y crea el movimiento de Kardex.
 
 ---
 
-### 📦 Rol Almacenista
-- [x] **[API] Catálogo e Inventario en Borrador:**
-  - [x] Permiso para crear marcas y categorías.
-  - [x] Permiso para capturar recepción física en estado `draft`.
-  - [x] Permiso para escanear y abrir cajas de lotes aprobados (`POST /inventory/boxes/open`).
-  - [x] Bloqueo de edición y eliminación de productos de catálogo.
-- [ ] **[FRONT] Vista móvil optimizada para Almacenista:**
-  - [ ] Interfaz móvil responsiva para conteo rápido de piezas en pasillo, captura ágil de remisiones y escaneo de códigos QR de cajas desde la cámara del celular/tableta.
+## 2. 🛠️ Endpoints y Payloads del Backend
+
+### A. Listar Recepciones (Paginado)
+* **Método:** `GET /inventory/receptions?page=1&limit=10&status=approved`
+* **Roles:** `admin`, `warehouse`, `seller`
+* **Query Params:**
+  * `page` (opcional, default 1): Número de página.
+  * `limit` (opcional, default 10): Elementos por página.
+  * `status` (opcional): `draft`, `approved`, o `rejected`.
+* **Respuesta:**
+```json
+{
+  "items": [
+    {
+      "_id": "60d5ec49c6d48227b4097400",
+      "status": "approved",
+      "invoiceOrFolio": "FAC-98421",
+      "items": [
+        {
+          "sku": "ACE-MOTUL-10W40",
+          "name": "Aceite Motul 10W40 1L",
+          "quantity": 20,
+          "boxCode": "BOX-1726435200000-1-9821",
+          "isBoxSealed": true
+        }
+      ],
+      "totalBoxes": 1,
+      "sealedBoxesCount": 1,
+      "openedBoxesCount": 0,
+      "isFullyOpened": false,
+      "sealedStock": 20,
+      "openedStock": 0,
+      "totalStock": 20
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 10,
+  "totalPages": 1
+}
+```
 
 ---
 
-### 👑 Rol Administrador
-- [x] **[API] Control Total:**
-  - [x] Único rol facultado para aprobar (`PATCH /inventory/receptions/:id/approve`) o rechazar (`reject`) recepciones de mercancía en borrador.
-  - [x] Control exclusivo para editar productos, precios y eliminar registros.
-  - [x] Acceso exclusivo a la Bitácora de Auditoría (`GET /audit-logs`).
-- [ ] **[FRONT] Bandeja de Aprobación de Recepciones:**
-  - [ ] Panel en compras/almacén para revisar remisiones capturadas en borrador y botones de *Aprobar* / *Rechazar con motivo*.
+### B. Crear Recepción en Borrador
+* **Método:** `POST /inventory/receptions`
+* **Roles:** `admin`, `warehouse`, `seller`
+* **Body:**
+```json
+{
+  "providerId": "60d5ec49c6d48227b409748f",
+  "invoiceOrFolio": "FAC-98421",
+  "notes": "Lote recibido en almacén",
+  "items": [
+    {
+      "productId": "60d5ec49c6d48227b409748e",
+      "quantity": 20,
+      "costPrice": 120,
+      "sellingPrice": 200
+    }
+  ]
+}
+```
 
 ---
 
-## 2. 🚗 Clientes, Citas y Deduplicación Inteligente de Vehículos
-
-- [x] **[API] Identificador Unico:** Teléfono celular como identificador principal del cliente.
-- [x] **[API] Deduplicación Inteligente (Smart Match):**
-  - [x] Eliminada la restricción rígida que bloqueaba registros por repetición de últimos 4 dígitos de serie/placas.
-  - [x] Si el cliente ya tiene un vehículo registrado con marca y modelo idénticos o cercanos (ej. `ITALIKA RUNNER` vs `ITALAKI RUNNER 2026`), el sistema reutiliza ese vehículo para no duplicar.
-  - [x] Si los campos varían sustancialmente o el cliente tiene otro modelo/marca, se registra como una nueva unidad del cliente.
-  - [x] Si el cliente tiene dos unidades del mismo modelo con números de serie explícitos distintos (flotilla), el sistema distingue las unidades.
-  - [x] Campos `year`, `serialNumberLastFour` y `color` ahora opcionales en API y base de datos (solo `brand` y `model` obligatorios).
-- [ ] **[FRONT] Selector de Vehículos del Cliente:**
-  - [ ] Al ingresar el teléfono del cliente en Citas o Recepción Directa, cargar y mostrar un dropdown con sus vehículos existentes para seleccionarlo en un clic sin tener que reescribirlo.
-
----
-
-## 3. 📦 Inventario: Recepciones en Borrador, Cajas QR y Precios de Mostrador
-
-- [x] **[API] Recepción Física en Borrador (`draft`):**
-  - [x] `POST /inventory/receptions` guarda la remisión sin sumar piezas al stock vendible de mostrador.
-  - [x] Cada bulto/caja genera un `boxCode` único (ej. `BOX-M8B2X-1-042`).
-- [x] **[API] Aprobación por Administrador:**
-  - [x] `PATCH /inventory/receptions/:id/approve` valida y aprueba el lote, dejándolo listo para impresión de etiquetas QR.
-- [x] **[API] Apertura de Caja y Unificación de Precios:**
-  - [x] `POST /inventory/boxes/open` recibe `{ boxCode }`.
-  - [x] Suma la cantidad de piezas de la caja al `stock` activo del producto.
-  - [x] Actualiza el precio de venta (`sellingPrice`) del producto al nuevo precio del lote, nivelando tanto las piezas nuevas como el remanente en exhibición.
-  - [x] Genera el movimiento de entrada en Kardex.
-- [ ] **[FRONT] Generador e Impresión de Tickets QR para Cajas:**
-  - [ ] Modal o plantilla de impresión para generar las etiquetas adhesivas térmicas con el código QR y texto (`boxCode`, producto, piezas) de las cajas aprobadas.
-- [ ] **[FRONT] Lector / Escáner de Cajas en Mostrador:**
-  - [ ] Botón "Abrir Caja de Almacén" en el módulo de inventario/POS con escáner de cámara o lector de código de barras para llamar a `POST /inventory/boxes/open`.
+### C. Aprobar Recepción (Solo Admin)
+* **Método:** `PATCH /inventory/receptions/:id/approve`
+* **Roles:** `admin`
+* **Respuesta (`items` con códigos de caja generados):**
+```json
+{
+  "_id": "60d5ec49c6d48227b4097400",
+  "status": "approved",
+  "invoiceOrFolio": "FAC-98421",
+  "items": [
+    {
+      "_id": "60d5ec49c6d48227b4097499",
+      "sku": "ACE-MOTUL-10W40",
+      "name": "Aceite Motul 10W40 1L",
+      "quantity": 20,
+      "costPrice": 120,
+      "sellingPrice": 200,
+      "boxCode": "BOX-M3X89K-1-042",
+      "isBoxSealed": true
+    }
+  ]
+}
+```
 
 ---
 
-## 4. 📲 Taller: Historial Acumulativo de Notificaciones
-
-- [x] **[API] Bitácora de Envíos en Mantenimiento:**
-  - [x] Arreglo `notificationHistory` en el modelo `Maintenance` guardando fecha (`sentAt`), usuario emisor (`sentBy`), canal (`whatsapp`), mensaje y notas.
-  - [x] Campo `notifiedAt` con la fecha del envío más reciente.
-  - [x] Poblado automático de los datos del usuario que notificó.
-- [ ] **[FRONT] Indicador Visual de Notificaciones:**
-  - [ ] En la tabla y detalle de órdenes de servicio, mostrar un badge con el número de notificaciones enviadas y fecha/hora de la última notificación.
-  - [ ] Drawer/Modal con el historial detallado de notificaciones para soporte ante reclamos del cliente.
-
----
-
-## 5. ⏰ Kiosco de Asistencia con PIN de 4 Dígitos (Tableta en Sucursal)
-
-- [x] **[API] Modelo de Usuario:** Campo `accessPin` (4 dígitos numéricos) administrable desde usuarios.
-- [x] **[API] Endpoint de Empleados para Kiosco:**
-  - [x] `GET /attendance/kiosk/employees?branchId=...` devuelve la lista de empleados de la sucursal y su estado en vivo (`working`, `on_break`, `completed`, `off_shift`).
-- [x] **[API] Registro de Asistencia por PIN:**
-  - [x] `POST /attendance/kiosk/clock` valida `userId`, `branchId` y `pin`, registrando la acción correspondiente (`clock-in`, `clock-out`, `break-start`, `break-end`) y grabando auditoría.
-- [ ] **[FRONT] Pantalla de Kiosco para Tableta:**
-  - [ ] Crear ruta dedicada (ej. `/kiosk` o `/attendance/kiosk`) en pantalla completa y modo táctil.
-  - [ ] Selector de sucursal inicial (persistido en `localStorage`).
-  - [ ] Grid táctil con tarjetas de empleados (nombre, foto, rol y estado actual).
-  - [ ] Teclado numérico virtual táctil (0-9) para teclear el PIN de 4 dígitos.
-  - [ ] Botones contextuales habilitados según el estado del empleado (Entrada, Iniciar Comida, Regreso Comida, Salida).
+### D. Rechazar Recepción (Solo Admin)
+* **Método:** `PATCH /inventory/receptions/:id/reject`
+* **Roles:** `admin`
+* **Body:**
+```json
+{
+  "reason": "Factura con importes incorrectos"
+}
+```
 
 ---
 
-## 6. 🛡️ Bitácora de Auditoría del Sistema (Audit Logs)
-
-- [x] **[API] Módulo Global de Auditoría:**
-  - [x] Modelo `AuditLog` y servicio centralizado `auditLogsService.logAction(...)`.
-  - [x] Registro automático de:
-    - Cancelaciones y rechazos de citas.
-    - Creación y cancelación de ventas en POS.
-    - Recepciones directas en taller.
-    - Notificaciones enviadas al cliente.
-    - Aprobación y rechazo de remisiones de mercancía.
-    - Aperturas de cajas QR y nivelación de precios.
-    - Eliminación de movimientos de stock.
-    - Marcajes de asistencia en kiosco.
-  - [x] Endpoint `GET /audit-logs` exclusivo para Admin con filtros por módulo, acción, usuario, fechas y búsqueda.
-- [ ] **[FRONT] Pantalla de Bitácora de Auditoría (Solo Admin):**
-  - [ ] Vista en panel de administración con tabla filtrable por fecha, usuario, módulo y tipo de acción para supervisión de eventos críticos.
+### E. Abrir Caja (Surtir Mostrador y Nivelar Precio)
+* **Método:** `POST /inventory/boxes/open`
+* **Roles:** `admin`, `warehouse`, `seller`
+* **Body:**
+```json
+{
+  "boxCode": "BOX-M3X89K-1-042"
+}
+```
+* **Respuesta:**
+```json
+{
+  "success": true,
+  "message": "Caja BOX-M3X89K-1-042 abierta exitosamente...",
+  "boxCode": "BOX-M3X89K-1-042",
+  "product": {
+    "_id": "60d5ec49c6d48227b409748e",
+    "name": "Aceite Motul 10W40 1L",
+    "previousStock": 3,
+    "currentStock": 23,
+    "previousSellingPrice": 180,
+    "currentSellingPrice": 200
+  }
+}
+```
 
 ---
 
-## 7. 🛒 Tareas Específicas de Frontend y Punto de Venta (POS)
+## 3. 💻 Código Frontend Listo para Usar (`ferventa-web`)
 
-- [x] **[API] Corrección de Cancelación de Venta:**
-  - [x] Verificado el endpoint `POST /sales/:id/cancel` con reversión de stock al almacén, registro de motivo y log en auditoría.
-- [ ] **[FRONT] Punto de Venta - Botón 4% Comisión con Tarjeta:**
-  - [ ] Agregar un botón en la ventana de cobro del POS que aplique rápidamente el recargo del 4% por pago con tarjeta bancaria.
-- [ ] **[FRONT] Selector de Categoría en Modal de Producto:**
-  - [ ] Corregir el ciclo de vida del modal para que al abrirse en modo creación se limpie la categoría previa seleccionada y no arrastre el valor anterior.
-- [ ] **[FRONT] Mapeo de Saldo en Kardex (Movimientos de Inventario):**
-  - [ ] Corregir la columna de la tabla de movimientos para mapear `balanceAfter` (saldo final resultante tras la entrada/salida) en lugar del stock anterior o incorrecto.
-- [ ] **[FRONT] Comprobante de Recepción de Servicio (PDF / Ticket Térmico):**
-  - [ ] Incorporar en la plantilla de impresión de recepción de vehículo el recuadro con los términos y condiciones, cláusulas legales de taller automotriz y espacio para firma de conformidad del cliente.
+### Paso 1: Instalar librería QR
+```bash
+npm install qrcode.react
+```
+
+### Paso 2: Componente de Etiqueta Térmica (`BoxQRLabel.tsx`)
+```tsx
+import React from 'react';
+import { QRCodeSVG } from 'qrcode.react';
+
+export interface BoxItemData {
+  _id: string;
+  sku: string;
+  name: string;
+  quantity: number;
+  costPrice: number;
+  sellingPrice: number;
+  boxCode: string;
+  isBoxSealed: boolean;
+}
+
+interface BoxQRLabelProps {
+  item: BoxItemData;
+  invoiceOrFolio?: string;
+  branchName?: string;
+}
+
+export const BoxQRLabel: React.FC<BoxQRLabelProps> = ({
+  item,
+  invoiceOrFolio,
+  branchName = 'Ferventa',
+}) => {
+  return (
+    <div
+      className="box-label-container"
+      style={{
+        width: '72mm',
+        padding: '8px',
+        border: '1px dashed #cbd5e1',
+        borderRadius: '6px',
+        backgroundColor: '#ffffff',
+        fontFamily: 'monospace, sans-serif',
+        color: '#000000',
+        pageBreakInside: 'avoid',
+        marginBottom: '12px',
+      }}
+    >
+      {/* Cabecera */}
+      <div style={{ textAlign: 'center', borderBottom: '1px solid #000', paddingBottom: '4px', marginBottom: '6px' }}>
+        <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase' }}>{branchName}</div>
+        <div style={{ fontSize: '10px' }}>LOTE / CAJA DE ALMACÉN</div>
+      </div>
+
+      {/* Cuerpo con QR y Datos */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ padding: '4px', backgroundColor: '#fff', border: '1px solid #000', borderRadius: '4px' }}>
+          <QRCodeSVG value={item.boxCode} size={90} level="M" />
+        </div>
+
+        <div style={{ flex: 1, fontSize: '11px', lineHeight: '1.3' }}>
+          <div style={{ fontWeight: 'bold', fontSize: '12px' }}>{item.name}</div>
+          <div>SKU: <strong>{item.sku}</strong></div>
+          <div>Contenido: <strong>{item.quantity} pzas</strong></div>
+          <div>P. Venta: <strong>${item.sellingPrice.toFixed(2)}</strong></div>
+          {invoiceOrFolio && <div style={{ fontSize: '9px', color: '#333' }}>Folio: {invoiceOrFolio}</div>}
+        </div>
+      </div>
+
+      {/* Código visible */}
+      <div style={{ marginTop: '6px', textAlign: 'center', borderTop: '1px solid #000', paddingTop: '3px' }}>
+        <span style={{ fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.5px' }}>{item.boxCode}</span>
+      </div>
+    </div>
+  );
+};
+```
+
+### Paso 3: Modal de Impresión de Etiquetas (`BoxPrintModal.tsx`)
+```tsx
+import React, { useRef } from 'react';
+import { BoxQRLabel, BoxItemData } from './BoxQRLabel';
+
+interface BoxPrintModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  reception: {
+    _id: string;
+    invoiceOrFolio?: string;
+    items: BoxItemData[];
+  } | null;
+}
+
+export const BoxPrintModal: React.FC<BoxPrintModalProps> = ({ isOpen, onClose, reception }) => {
+  const printAreaRef = useRef<HTMLDivElement>(null);
+
+  if (!isOpen || !reception) return null;
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <div className="modal-overlay">
+      <style>
+        {`
+          @media print {
+            body * {
+              visibility: hidden;
+            }
+            #box-print-section, #box-print-section * {
+              visibility: visible;
+            }
+            #box-print-section {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 100%;
+            }
+          }
+        `}
+      </style>
+
+      <div className="modal-content" style={{ maxWidth: '500px', padding: '20px' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>
+          📦 Etiquetas QR de Cajas
+        </h3>
+        <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>
+          Imprime y pega estas etiquetas en cada bulto/caja en la bodega.
+        </p>
+
+        <div
+          id="box-print-section"
+          ref={printAreaRef}
+          style={{ maxHeight: '400px', overflowY: 'auto', padding: '10px', backgroundColor: '#f8fafc', borderRadius: '8px' }}
+        >
+          {reception.items.map((item) => (
+            <BoxQRLabel
+              key={item._id || item.boxCode}
+              item={item}
+              invoiceOrFolio={reception.invoiceOrFolio}
+            />
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+            Cerrar
+          </button>
+          <button
+            onClick={handlePrint}
+            style={{ padding: '8px 16px', borderRadius: '6px', backgroundColor: '#0284c7', color: '#fff', fontWeight: 'bold' }}
+          >
+            🖨️ Imprimir Todas ({reception.items.length})
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+```
+
+---
+
+## 4. 📝 Tareas Pendientes para Frontend (`ferventa-web`)
+
+- [ ] **Modal de Ingreso de Mercancía (`POST /inventory/receptions`):**
+  - [ ] Agregar input editable de **Nuevo Precio de Venta (`sellingPrice`)** en la tabla de productos recibidos, pre-llenado con el precio actual.
+- [ ] **Bandeja de Recepciones (`GET /inventory/receptions`):**
+  - [ ] Mostrar estados `draft`, `approved`, `rejected`.
+  - [ ] Botones para Admin: **Aprobar** (`PATCH /inventory/receptions/:id/approve`) y **Rechazar** (`PATCH /inventory/receptions/:id/reject`).
+- [ ] **Generador e Impresión de Etiquetas QR:**
+  - [ ] Integrar `BoxQRLabel` y `BoxPrintModal` en recepciones aprobadas.
+- [ ] **Modal / Botón "Abrir Caja de Bodega" (`POST /inventory/boxes/open`):**
+  - [ ] Input para teclear/escanear `boxCode` o botón directo en la lista de cajas selladas.
+  - [ ] Toast de confirmación con el nuevo stock y el precio actualizado.

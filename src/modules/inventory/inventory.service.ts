@@ -372,6 +372,81 @@ export class InventoryService {
     return (await product.save()).populate(['brand', 'category']);
   }
 
+  /**
+   * Aggregate sealed-box stats from approved StockReceptions for a set of product IDs.
+   * Returns a map: productId -> { sealedStock, sealedBoxesCount }.
+   */
+  private async getSealedBoxStats(
+    branchId: string,
+    productIds: string[],
+  ): Promise<Map<string, { sealedStock: number; sealedBoxesCount: number }>> {
+    const statsMap = new Map<
+      string,
+      { sealedStock: number; sealedBoxesCount: number }
+    >();
+
+    if (productIds.length === 0) return statsMap;
+
+    const pipeline = [
+      {
+        $match: {
+          branch: new (require('mongoose').Types.ObjectId)(branchId),
+          status: 'approved',
+        },
+      },
+      { $unwind: '$items' },
+      {
+        $match: {
+          'items.isBoxSealed': true,
+          'items.product': {
+            $in: productIds.map(
+              (id) => new (require('mongoose').Types.ObjectId)(id),
+            ),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$items.product',
+          sealedStock: { $sum: '$items.quantity' },
+          sealedBoxesCount: { $sum: 1 },
+        },
+      },
+    ];
+
+    const results = await this.receptionModel.aggregate(pipeline).exec();
+
+    for (const r of results) {
+      statsMap.set(r._id.toString(), {
+        sealedStock: r.sealedStock,
+        sealedBoxesCount: r.sealedBoxesCount,
+      });
+    }
+
+    return statsMap;
+  }
+
+  /**
+   * Attach sealedStock, totalStock, sealedBoxesCount to product documents.
+   */
+  private attachBoxStats(
+    products: any[],
+    statsMap: Map<string, { sealedStock: number; sealedBoxesCount: number }>,
+  ): any[] {
+    return products.map((p) => {
+      const obj = typeof p.toObject === 'function' ? p.toObject() : { ...p };
+      const id = (obj._id || '').toString();
+      const stats = statsMap.get(id) || {
+        sealedStock: 0,
+        sealedBoxesCount: 0,
+      };
+      obj.sealedStock = stats.sealedStock;
+      obj.sealedBoxesCount = stats.sealedBoxesCount;
+      obj.totalStock = (obj.stock || 0) + stats.sealedStock;
+      return obj;
+    });
+  }
+
   async findAllProducts(
     branchId: string,
     filters: {
@@ -381,7 +456,7 @@ export class InventoryService {
       page?: number;
       limit?: number;
     },
-  ): Promise<PaginatedResult<ProductDocument>> {
+  ): Promise<PaginatedResult<any>> {
     const page = filters.page || 1;
     const limit = filters.limit || 10;
     const skip = (page - 1) * limit;
@@ -410,8 +485,12 @@ export class InventoryService {
       this.productModel.countDocuments(query),
     ]);
 
+    const productIds = items.map((p) => (p._id as any).toString());
+    const statsMap = await this.getSealedBoxStats(branchId, productIds);
+    const enrichedItems = this.attachBoxStats(items, statsMap);
+
     return {
-      items,
+      items: enrichedItems,
       total,
       page,
       limit,
@@ -424,7 +503,7 @@ export class InventoryService {
     search: string,
     page = 1,
     limit = 10,
-  ): Promise<PaginatedResult<ProductDocument>> {
+  ): Promise<PaginatedResult<any>> {
     const regex = buildFuzzyRegex(search);
     const query = {
       isActive: true,
@@ -442,8 +521,13 @@ export class InventoryService {
         .exec(),
       this.productModel.countDocuments(query),
     ]);
+
+    const productIds = items.map((p) => (p._id as any).toString());
+    const statsMap = await this.getSealedBoxStats(branchId, productIds);
+    const enrichedItems = this.attachBoxStats(items, statsMap);
+
     return {
-      items,
+      items: enrichedItems,
       total,
       page,
       limit,
@@ -454,7 +538,7 @@ export class InventoryService {
   async findProductById(
     id: string,
     branchId: string,
-  ): Promise<ProductDocument> {
+  ): Promise<any> {
     const product = await this.productModel
       .findOne({ _id: id, branch: branchId })
       .populate(['brand', 'category'])
@@ -467,7 +551,12 @@ export class InventoryService {
           : 'Producto no encontrado',
       );
     }
-    return product;
+
+    const statsMap = await this.getSealedBoxStats(branchId, [
+      (product._id as any).toString(),
+    ]);
+    const [enriched] = this.attachBoxStats([product], statsMap);
+    return enriched;
   }
 
   async findProductBySku(
@@ -805,27 +894,84 @@ export class InventoryService {
     ]);
   }
 
-  async findAllReceptions(
-    branchId: string,
-    status?: string,
-  ): Promise<StockReceptionDocument[]> {
-    const query: any = { branch: branchId };
-    if (status) {
-      query.status = status;
-    }
+  /**
+   * Attach box & stock summary statistics to a reception object.
+   */
+  private enrichReceptionStats(reception: any): any {
+    const obj =
+      typeof reception.toObject === 'function'
+        ? reception.toObject()
+        : { ...reception };
+    const items = obj.items || [];
+    const totalBoxes = items.length;
+    const sealedBoxesCount = items.filter((i: any) => i.isBoxSealed).length;
+    const openedBoxesCount = totalBoxes - sealedBoxesCount;
+    const sealedStock = items
+      .filter((i: any) => i.isBoxSealed)
+      .reduce((sum: number, i: any) => sum + (Number(i.quantity) || 0), 0);
+    const openedStock = items
+      .filter((i: any) => !i.isBoxSealed)
+      .reduce((sum: number, i: any) => sum + (Number(i.quantity) || 0), 0);
+    const totalStock = sealedStock + openedStock;
+    const isFullyOpened = totalBoxes > 0 && sealedBoxesCount === 0;
 
-    return this.receptionModel
-      .find(query)
-      .populate('provider', 'name providerCode')
-      .populate('receivedBy', 'name email')
-      .populate('approvedBy', 'name email')
-      .populate({ path: 'items.product', populate: ['brand', 'category'] })
-      .populate('items.openedBy', 'name email')
-      .sort({ createdAt: -1 })
-      .exec();
+    return {
+      ...obj,
+      totalBoxes,
+      sealedBoxesCount,
+      openedBoxesCount,
+      isFullyOpened,
+      sealedStock,
+      openedStock,
+      totalStock,
+    };
   }
 
-  async findReceptionById(
+  async findAllReceptions(
+    branchId: string,
+    filters: {
+      status?: string;
+      page?: number;
+      limit?: number;
+    } = {},
+  ): Promise<PaginatedResult<any>> {
+    const page = filters.page || 1;
+    const limit = filters.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const query: any = { branch: branchId };
+    if (filters.status) {
+      query.status = filters.status;
+    }
+
+    const [receptions, total] = await Promise.all([
+      this.receptionModel
+        .find(query)
+        .populate('provider', 'name providerCode')
+        .populate('receivedBy', 'name email')
+        .populate('approvedBy', 'name email')
+        .populate({ path: 'items.product', populate: ['brand', 'category'] })
+        .populate('items.openedBy', 'name email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.receptionModel.countDocuments(query),
+    ]);
+
+    return {
+      items: receptions.map((r) => this.enrichReceptionStats(r)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
+
+  /**
+   * Internal helper to find raw StockReception Mongoose document.
+   */
+  private async getReceptionDocument(
     id: string,
     branchId: string,
   ): Promise<StockReceptionDocument> {
@@ -844,12 +990,20 @@ export class InventoryService {
     return reception;
   }
 
+  async findReceptionById(
+    id: string,
+    branchId: string,
+  ): Promise<any> {
+    const reception = await this.getReceptionDocument(id, branchId);
+    return this.enrichReceptionStats(reception);
+  }
+
   async approveReception(
     id: string,
     userId: string,
     branchId: string,
-  ): Promise<StockReceptionDocument> {
-    const reception = await this.findReceptionById(id, branchId);
+  ): Promise<any> {
+    const reception = await this.getReceptionDocument(id, branchId);
     if (reception.status !== 'draft') {
       throw new BadRequestException(
         `Solo se pueden aprobar recepciones en estado draft. Estado actual: ${reception.status}`,
@@ -873,12 +1027,14 @@ export class InventoryService {
       metadata: { folio: saved.invoiceOrFolio, itemsCount: saved.items.length },
     });
 
-    return saved.populate([
+    const populated = await saved.populate([
       { path: 'provider', select: 'name providerCode' },
       { path: 'receivedBy', select: 'name email' },
       { path: 'approvedBy', select: 'name email' },
       { path: 'items.product', populate: ['brand', 'category'] },
     ]);
+
+    return this.enrichReceptionStats(populated);
   }
 
   async rejectReception(
@@ -886,8 +1042,8 @@ export class InventoryService {
     userId: string,
     branchId: string,
     reason?: string,
-  ): Promise<StockReceptionDocument> {
-    const reception = await this.findReceptionById(id, branchId);
+  ): Promise<any> {
+    const reception = await this.getReceptionDocument(id, branchId);
     if (reception.status !== 'draft') {
       throw new BadRequestException(
         `Solo se pueden rechazar recepciones en estado draft. Estado actual: ${reception.status}`,
@@ -911,12 +1067,14 @@ export class InventoryService {
       metadata: { reason: saved.rejectionReason },
     });
 
-    return saved.populate([
+    const populated = await saved.populate([
       { path: 'provider', select: 'name providerCode' },
       { path: 'receivedBy', select: 'name email' },
       { path: 'approvedBy', select: 'name email' },
       { path: 'items.product', populate: ['brand', 'category'] },
     ]);
+
+    return this.enrichReceptionStats(populated);
   }
 
   async openBox(boxCode: string, userId: string, branchId: string) {

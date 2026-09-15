@@ -150,6 +150,15 @@ export class CreateAppointmentDto {
   branchName?: string;
 
   @ApiPropertyOptional({
+    example: '60d5ec49c6d48227b409748b',
+    description: 'ID de la sucursal',
+  })
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
+  @IsOptional()
+  branchId?: string;
+
+  @ApiPropertyOptional({
     example: 'approved',
     enum: ['pending', 'approved', 'completed', 'no_show'],
     description: 'Estado inicial de la cita (Solo Staff)',

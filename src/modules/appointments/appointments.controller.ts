@@ -46,10 +46,11 @@ export class AppointmentsController {
   })
   @ApiResponse({ status: 201, description: 'Cita agendada correctamente.' })
   publicCreate(
-    @Headers('x-branch-id') branchId: string,
+    @Headers('x-branch-id') headerBranchId: string,
     @Body() createAppointmentDto: CreateAppointmentDto,
   ) {
-    if (!branchId) throw new BadRequestException('Falta x-branch-id');
+    const branchId = headerBranchId || createAppointmentDto.branchId;
+    if (!branchId) throw new BadRequestException('Falta x-branch-id o branchId en el cuerpo de la petición');
     return this.appointmentsService.create(createAppointmentDto, branchId);
   }
 
@@ -63,11 +64,18 @@ export class AppointmentsController {
     required: true,
     description: 'ID de cita, teléfono de cliente o placas del vehículo',
   })
+  @ApiQuery({
+    name: 'branchId',
+    required: false,
+    description: 'ID de la sucursal (opcional si se envía en header)',
+  })
   publicQueryStatus(
-    @Headers('x-branch-id') branchId: string,
+    @Headers('x-branch-id') headerBranchId: string,
     @Query('q') queryStr: string,
+    @Query('branchId') queryBranchId?: string,
   ) {
-    if (!branchId) throw new BadRequestException('Falta x-branch-id');
+    const branchId = headerBranchId || queryBranchId;
+    if (!branchId) throw new BadRequestException('Falta x-branch-id o query param branchId');
     return this.appointmentsService.queryStatus(queryStr, branchId);
   }
 
@@ -76,8 +84,17 @@ export class AppointmentsController {
   @ApiOperation({
     summary: 'Obtener la configuración del horario semanal laboral',
   })
-  getSchedule(@Headers('x-branch-id') branchId: string) {
-    if (!branchId) throw new BadRequestException('Falta x-branch-id');
+  @ApiQuery({
+    name: 'branchId',
+    required: false,
+    description: 'ID de la sucursal (opcional si se envía en header)',
+  })
+  getSchedule(
+    @Headers('x-branch-id') headerBranchId: string,
+    @Query('branchId') queryBranchId?: string,
+  ) {
+    const branchId = headerBranchId || queryBranchId;
+    if (!branchId) throw new BadRequestException('Falta x-branch-id o query param branchId');
     return this.appointmentsService.getSchedule(branchId);
   }
 
@@ -103,8 +120,17 @@ export class AppointmentsController {
   @ApiOperation({
     summary: 'Obtener el listado de días festivos / cierres especiales',
   })
-  getHolidays(@Headers('x-branch-id') branchId: string) {
-    if (!branchId) throw new BadRequestException('Falta x-branch-id');
+  @ApiQuery({
+    name: 'branchId',
+    required: false,
+    description: 'ID de la sucursal (opcional si se envía en header)',
+  })
+  getHolidays(
+    @Headers('x-branch-id') headerBranchId: string,
+    @Query('branchId') queryBranchId?: string,
+  ) {
+    const branchId = headerBranchId || queryBranchId;
+    if (!branchId) throw new BadRequestException('Falta x-branch-id o query param branchId');
     return this.appointmentsService.getHolidays(branchId);
   }
 
@@ -142,12 +168,19 @@ export class AppointmentsController {
   })
   @ApiQuery({ name: 'startDate', required: true, example: '2026-07-01' })
   @ApiQuery({ name: 'endDate', required: true, example: '2026-07-31' })
+  @ApiQuery({
+    name: 'branchId',
+    required: false,
+    description: 'ID de la sucursal (opcional si se envía en header)',
+  })
   getOccupiedSlots(
-    @Headers('x-branch-id') branchId: string,
+    @Headers('x-branch-id') headerBranchId: string,
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
+    @Query('branchId') queryBranchId?: string,
   ) {
-    if (!branchId) throw new BadRequestException('Falta x-branch-id');
+    const branchId = headerBranchId || queryBranchId;
+    if (!branchId) throw new BadRequestException('Falta x-branch-id o query param branchId');
     if (!startDate || !endDate) {
       const i18n = I18nContext.current();
       throw new BadRequestException(

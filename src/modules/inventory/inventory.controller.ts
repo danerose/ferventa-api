@@ -467,7 +467,7 @@ export class InventoryController {
   @Roles('admin', 'warehouse', 'seller')
   @ApiOperation({
     summary:
-      'Listar recepciones de mercancía con filtros opcionales de estado (draft, approved, rejected)',
+      'Listar recepciones de mercancía con paginación y filtros opcionales de estado (draft, approved, rejected)',
   })
   @ApiQuery({
     name: 'status',
@@ -475,11 +475,19 @@ export class InventoryController {
     enum: ['draft', 'approved', 'rejected'],
     description: 'Filtrar por estado de la recepción',
   })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
   findAllReceptions(
     @BranchId() branchId: string,
     @Query('status') status?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
   ) {
-    return this.inventoryService.findAllReceptions(branchId, status);
+    return this.inventoryService.findAllReceptions(branchId, {
+      status,
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 10,
+    });
   }
 
   @Get('receptions/:id')
