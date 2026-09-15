@@ -77,7 +77,7 @@ export class MaintenanceController {
   // --- STAFF ENDPOINTS (Required Auth) ---
   @Post('direct-reception')
   @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
-  @Roles('admin', 'seller')
+  @Roles('admin', 'seller', 'mechanic')
   @ApiBearerAuth()
   @ApiOperation({
     summary:
@@ -124,6 +124,7 @@ export class MaintenanceController {
   })
   findAll(
     @BranchId() branchId: string,
+    @CurrentUser() user: any,
     @Query('customerId') customerId?: string,
     @Query('status') status?: string,
     @Query('scope') scope?: 'active' | 'delivered_recent' | 'history',
@@ -132,15 +133,19 @@ export class MaintenanceController {
     @Query('dateField') dateField?: any,
     @Query('search') search?: string,
   ) {
-    return this.maintenanceService.findAll(branchId, {
-      customerId,
-      status,
-      scope,
-      from,
-      to,
-      dateField,
-      search,
-    });
+    return this.maintenanceService.findAll(
+      branchId,
+      {
+        customerId,
+        status,
+        scope,
+        from,
+        to,
+        dateField,
+        search,
+      },
+      user,
+    );
   }
 
   @Get(':id')
@@ -164,18 +169,20 @@ export class MaintenanceController {
     @Param('id') id: string,
     @Body() updateMaintenanceDto: UpdateMaintenanceDto,
     @CurrentUser('_id') userId: string,
+    @CurrentUser() user: any,
   ) {
     return this.maintenanceService.update(
       id,
       branchId,
       updateMaintenanceDto,
       userId,
+      user,
     );
   }
 
   @Patch(':id/notify')
   @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
-  @Roles('admin', 'seller', 'mechanic')
+  @Roles('admin', 'seller')
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Registrar que se notificó al cliente que su vehículo está listo',

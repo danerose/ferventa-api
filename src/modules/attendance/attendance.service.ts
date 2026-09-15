@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, isValidObjectId } from 'mongoose';
@@ -14,6 +15,8 @@ import { StartBreakDto } from './dto/start-break.dto';
 import { AttendanceQueryDto } from './dto/attendance-query.dto';
 import { AttendanceSummaryQueryDto } from './dto/attendance-summary-query.dto';
 import { UpdateAttendanceDto } from './dto/update-attendance.dto';
+import { KioskClockDto } from './dto/kiosk-clock.dto';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 @Injectable()
 export class AttendanceService {
@@ -22,6 +25,7 @@ export class AttendanceService {
     private readonly attendanceModel: Model<AttendanceDocument>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   private getTodayDateString(): string {
@@ -748,5 +752,100 @@ export class AttendanceService {
     }
 
     return record.save();
+  }
+
+  /**
+   * Obtener empleados activos asignados a una sucursal para la pantalla del Kiosco
+   */
+  async getKioskEmployees(branchId: string) {
+    const branchStatus = await this.getBranchTodayStatus(branchId);
+    return branchStatus.users.map((item: any) => ({
+      _id: item.user._id,
+      name: item.user.name,
+      username: item.user.username,
+      role: item.user.role?.name || item.user.role || 'staff',
+      status: item.status, // 'working', 'on_break', 'completed', 'off_shift'
+      hasActiveShift: item.hasActiveShift,
+      activeBreak: item.activeBreak,
+      currentWorkMinutes: item.currentWorkMinutes,
+    }));
+  }
+
+  /**
+   * Registrar acción de asistencia en Kiosco mediante PIN de 4 dígitos
+   */
+  async kioskClock(dto: KioskClockDto) {
+    const { branchId, userId, pin, action, notes } = dto;
+    if (!branchId || !userId || !pin || !action) {
+      throw new BadRequestException(
+        'Faltan datos requeridos para registrar en el kiosco',
+      );
+    }
+
+    const user = await this.userModel.findOne({
+      _id: userId,
+      isActive: true,
+      deletedAt: null,
+    });
+
+    if (!user) {
+      throw new NotFoundException('Empleado no encontrado o inactivo');
+    }
+
+    if (!user.accessPin) {
+      throw new BadRequestException(
+        'El empleado no tiene configurado un PIN de acceso. Contacte al administrador.',
+      );
+    }
+
+    if (user.accessPin.trim() !== pin.trim()) {
+      throw new UnauthorizedException(
+        'PIN incorrecto. Verifique sus 4 dígitos.',
+      );
+    }
+
+    let result: AttendanceDocument;
+    let message = '';
+
+    switch (action) {
+      case 'clock-in':
+        result = await this.clockIn(userId, branchId, { note: notes });
+        message = `Entrada registrada exitosamente para ${user.name}`;
+        break;
+      case 'clock-out':
+        result = await this.clockOut(userId, { note: notes });
+        message = `Salida registrada exitosamente para ${user.name}`;
+        break;
+      case 'break-start':
+        result = await this.startBreak(userId, { note: notes });
+        message = `Descanso iniciado para ${user.name}`;
+        break;
+      case 'break-end':
+        result = await this.endBreak(userId);
+        message = `Regreso de descanso registrado para ${user.name}`;
+        break;
+      default:
+        throw new BadRequestException(`Acción "${action}" no reconocida`);
+    }
+
+    await this.auditLogsService.logAction({
+      action: `KIOSK_${action.toUpperCase().replace('-', '_')}`,
+      module: 'attendance',
+      description: `Kiosco: ${user.name} registró ${action}`,
+      branchId,
+      performedBy: userId,
+      entityId: (result._id as any)?.toString(),
+      entityType: 'Attendance',
+      metadata: { action, userName: user.name, notes },
+    });
+
+    return {
+      success: true,
+      message,
+      action,
+      userName: user.name,
+      timestamp: new Date(),
+      data: result,
+    };
   }
 }

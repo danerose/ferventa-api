@@ -14,6 +14,7 @@ import { InventoryService } from '../inventory/inventory.service';
 import { QuotesService } from '../quotes/quotes.service';
 import { MercadoPagoService } from './mercado-pago.service';
 import { ServicesService } from '../services/services.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { I18nContext } from 'nestjs-i18n';
 
 @Injectable()
@@ -25,6 +26,7 @@ export class SalesService {
     private readonly quotesService: QuotesService,
     private readonly mercadoPagoService: MercadoPagoService,
     private readonly servicesService: ServicesService,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   async create(
@@ -294,7 +296,25 @@ export class SalesService {
       branch: branchId as any,
     });
 
-    return (await sale.save()).populate([
+    const saved = await sale.save();
+
+    await this.auditLogsService.logAction({
+      action: 'CREATE_SALE',
+      module: 'sales',
+      description: `Venta registrada con folio #${saved.folio} por un total de $${saved.total}`,
+      branchId,
+      performedBy: userId,
+      entityId: (saved._id as any).toString(),
+      entityType: 'Sale',
+      metadata: {
+        folio: saved.folio,
+        total: saved.total,
+        paymentMethod: saved.paymentMethod,
+        itemsCount: saved.items?.length,
+      },
+    });
+
+    return saved.populate([
       'customer',
       'seller',
       'items.product',
@@ -398,6 +418,21 @@ export class SalesService {
         }
       }
     }
+
+    await this.auditLogsService.logAction({
+      action: 'CANCEL_SALE',
+      module: 'sales',
+      description: `Venta folio #${sale.folio} cancelada. Razón: ${cancelSaleDto.reason}`,
+      branchId,
+      performedBy: userId,
+      entityId: (sale._id as any).toString(),
+      entityType: 'Sale',
+      metadata: {
+        folio: sale.folio,
+        reason: cancelSaleDto.reason,
+        total: sale.total,
+      },
+    });
 
     return sale;
   }

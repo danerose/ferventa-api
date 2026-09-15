@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
   Inject,
   forwardRef,
 } from '@nestjs/common';
@@ -22,6 +23,7 @@ import { SalesService } from '../sales/sales.service';
 import { I18nContext } from 'nestjs-i18n';
 import { CreateDirectReceptionDto } from './dto/create-direct-reception.dto';
 import { LinkSaleDto } from './dto/link-sale.dto';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { buildFuzzyRegex } from '../../common/utils/search.util';
 
 export interface MaintenanceFilters {
@@ -31,12 +33,12 @@ export interface MaintenanceFilters {
   from?: string;
   to?: string;
   dateField?:
-    | 'receptionDate'
-    | 'completedAt'
-    | 'deliveredAt'
-    | 'createdAt'
-    | 'startDate'
-    | 'endDate';
+  | 'receptionDate'
+  | 'completedAt'
+  | 'deliveredAt'
+  | 'createdAt'
+  | 'startDate'
+  | 'endDate';
   search?: string;
 }
 
@@ -52,7 +54,8 @@ export class MaintenanceService {
     private readonly inventoryService: InventoryService,
     @Inject(forwardRef(() => SalesService))
     private readonly salesService: SalesService,
-  ) {}
+    private readonly auditLogsService: AuditLogsService,
+  ) { }
 
   /**
    * Direct vehicle reception without a prior appointment (Walk-in).
@@ -125,43 +128,17 @@ export class MaintenanceService {
     }
 
     if (!vehicle) {
-      const serialNumberLastFour = dto.vehicle.serialNumberLastFour
-        .toUpperCase()
-        .trim();
-
-      const existingForCustomer =
-        await this.vehiclesService.findByCustomerAndSerial(
-          customerId!,
-          serialNumberLastFour,
-          branchId,
-        );
-
-      if (existingForCustomer) {
-        // Si este cliente ya tiene este vehículo, actualizamos con los datos nuevos
-        vehicle = await this.vehiclesService.update(
-          (existingForCustomer._id as any).toString(),
-          branchId,
-          {
-            brand: dto.vehicle.brand,
-            model: dto.vehicle.model,
-            year: dto.vehicle.year,
-            color: dto.vehicle.color,
-          },
-        );
-      } else {
-        // Si este cliente no lo tiene, creamos un vehículo nuevo asignado a él
-        vehicle = await this.vehiclesService.create(
-          {
-            customerId: customerId!,
-            brand: dto.vehicle.brand,
-            model: dto.vehicle.model,
-            year: dto.vehicle.year,
-            serialNumberLastFour: serialNumberLastFour,
-            color: dto.vehicle.color,
-          },
-          branchId,
-        );
-      }
+      vehicle = await this.vehiclesService.findOrCreateByClosestMatch(
+        customerId!,
+        {
+          brand: dto.vehicle.brand,
+          model: dto.vehicle.model,
+          year: dto.vehicle.year,
+          serialNumberLastFour: dto.vehicle.serialNumberLastFour,
+          color: dto.vehicle.color,
+        },
+        branchId,
+      );
     }
 
     // Register a completed appointment record for workshop analytics & timeline
@@ -178,7 +155,8 @@ export class MaintenanceService {
           brand: vehicle.brand,
           model: vehicle.model,
           year: vehicle.year,
-          serialNumberLastFour: vehicle.serialNumberLastFour,
+          serialNumberLastFour: vehicle.serialNumberLastFour || '',
+          color: vehicle.color || dto.vehicle.color || '',
         },
         serviceRequested: dto.serviceRequested,
         scheduledAt: new Date(),
@@ -219,6 +197,18 @@ export class MaintenanceService {
     });
 
     const saved = await maintenance.save();
+
+    await this.auditLogsService.logAction({
+      action: 'DIRECT_RECEPTION',
+      module: 'maintenance',
+      description: `Recepción directa de vehículo creada para ${customer.name}`,
+      branchId,
+      performedBy: userId,
+      entityId: (saved._id as any).toString(),
+      entityType: 'Maintenance',
+      metadata: { service: dto.serviceRequested, customer: customer.name },
+    });
+
     return saved.populate(['customer', 'vehicle', 'createdBy', 'appointment']);
   }
 
@@ -311,8 +301,23 @@ export class MaintenanceService {
   async findAll(
     branchId: string,
     filters: MaintenanceFilters,
+    currentUser?: any,
   ): Promise<MaintenanceDocument[]> {
     const query: any = { branch: branchId };
+
+    // Si el usuario es mecánico, auto-filtrar para que solo vea las órdenes asignadas a él
+    if (currentUser?.role?.name === 'mechanic') {
+      const mechanicName = (
+        currentUser.name ||
+        currentUser.username ||
+        ''
+      ).trim();
+      query.$or = [
+        { assignedMechanic: mechanicName },
+        { assignedMechanic: new RegExp(`^${mechanicName}$`, 'i') },
+        { assignedMechanic: currentUser._id?.toString() },
+      ];
+    }
 
     if (filters.customerId) {
       query.customer = filters.customerId;
@@ -457,6 +462,7 @@ export class MaintenanceService {
         'itemsUsed.product',
         'statusHistory.changedBy',
         'diagnosticNotes.createdBy',
+        'notificationHistory.sentBy',
         'sale',
       ])
       .exec();
@@ -476,9 +482,35 @@ export class MaintenanceService {
     branchId: string,
     updateMaintenanceDto: UpdateMaintenanceDto,
     userId?: string,
+    currentUser?: any,
   ): Promise<MaintenanceDocument> {
     const order = await this.findById(id, branchId);
     const now = new Date();
+
+    // Restricciones para el rol mecánico: no puede asignar mecánico, modificar costos ni vincular venta
+    if (currentUser?.role?.name === 'mechanic') {
+      if (
+        updateMaintenanceDto.assignedMechanic !== undefined &&
+        updateMaintenanceDto.assignedMechanic !== order.assignedMechanic
+      ) {
+        throw new ForbiddenException(
+          'Los técnicos/mecánicos no tienen permisos para reasignar la orden de servicio',
+        );
+      }
+      if (
+        updateMaintenanceDto.laborCost !== undefined &&
+        updateMaintenanceDto.laborCost !== order.laborCost
+      ) {
+        throw new ForbiddenException(
+          'Los técnicos/mecánicos no tienen permisos para modificar el costo de mano de obra',
+        );
+      }
+      if (updateMaintenanceDto.saleId !== undefined) {
+        throw new ForbiddenException(
+          'Los técnicos/mecánicos no tienen permisos para vincular o desvincular tickets de venta',
+        );
+      }
+    }
 
     if (
       updateMaintenanceDto.status &&
@@ -675,6 +707,18 @@ export class MaintenanceService {
     const now = new Date();
     order.notifiedAt = now;
 
+    if (!order.notificationHistory) {
+      order.notificationHistory = [];
+    }
+    order.notificationHistory.push({
+      sentAt: now,
+      sentBy: userId as any,
+      channel: 'whatsapp',
+      notes: notes || 'Vehículo listo para entrega',
+      message: 'Se notificó al cliente que su vehículo está listo para entrega',
+    });
+    order.markModified('notificationHistory');
+
     if (!order.statusHistory) {
       order.statusHistory = [];
     }
@@ -689,6 +733,18 @@ export class MaintenanceService {
     order.markModified('statusHistory');
 
     const saved = await order.save();
+
+    await this.auditLogsService.logAction({
+      action: 'NOTIFY_CLIENT',
+      module: 'maintenance',
+      description: `Cliente notificado para orden de mantenimiento #${(order._id as any).toString().slice(-6).toUpperCase()}`,
+      branchId,
+      performedBy: userId,
+      entityId: (order._id as any).toString(),
+      entityType: 'Maintenance',
+      metadata: { notes },
+    });
+
     return saved.populate([
       'customer',
       'vehicle',
@@ -697,6 +753,7 @@ export class MaintenanceService {
       'itemsUsed.product',
       'statusHistory.changedBy',
       'diagnosticNotes.createdBy',
+      'notificationHistory.sentBy',
       'sale',
     ]);
   }

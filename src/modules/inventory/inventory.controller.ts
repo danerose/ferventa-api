@@ -23,6 +23,10 @@ import { CreateProviderDto } from './dto/create-provider.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateStockMovementDto } from './dto/create-stock-movement.dto';
+import {
+  CreateStockReceptionDto,
+  OpenBoxDto,
+} from './dto/create-stock-reception.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -41,9 +45,9 @@ export class InventoryController {
 
   // --- BRAND ENDPOINTS ---
   @Post('brands')
-  @Roles('admin', 'warehouse')
+  @Roles('admin', 'warehouse', 'seller')
   @ApiOperation({
-    summary: 'Registrar una marca de autopartes (Admin / Warehouse)',
+    summary: 'Registrar una marca de autopartes (Admin / Warehouse / Seller)',
   })
   createBrand(
     @BranchId() branchId: string,
@@ -109,16 +113,18 @@ export class InventoryController {
   }
 
   @Delete('brands/:id')
-  @Roles('admin', 'warehouse')
-  @ApiOperation({ summary: 'Eliminar una marca (Admin / Warehouse)' })
+  @Roles('admin')
+  @ApiOperation({ summary: 'Eliminar una marca (Solo Admin)' })
   deleteBrand(@BranchId() branchId: string, @Param('id') id: string) {
     return this.inventoryService.deleteBrand(id, branchId);
   }
 
   // --- CATEGORY ENDPOINTS ---
   @Post('categories')
-  @Roles('admin', 'warehouse')
-  @ApiOperation({ summary: 'Registrar una categoría (Admin / Warehouse)' })
+  @Roles('admin', 'warehouse', 'seller')
+  @ApiOperation({
+    summary: 'Registrar una categoría (Admin / Warehouse / Seller)',
+  })
   createCategory(
     @BranchId() branchId: string,
     @Body() createCategoryDto: CreateCategoryDto,
@@ -183,8 +189,8 @@ export class InventoryController {
   }
 
   @Delete('categories/:id')
-  @Roles('admin', 'warehouse')
-  @ApiOperation({ summary: 'Eliminar una categoría (Admin / Warehouse)' })
+  @Roles('admin')
+  @ApiOperation({ summary: 'Eliminar una categoría (Solo Admin)' })
   deleteCategory(@BranchId() branchId: string, @Param('id') id: string) {
     return this.inventoryService.deleteCategory(id, branchId);
   }
@@ -282,9 +288,9 @@ export class InventoryController {
 
   // --- PRODUCT ENDPOINTS ---
   @Post('products')
-  @Roles('admin', 'warehouse')
+  @Roles('admin')
   @ApiOperation({
-    summary: 'Registrar una autoparte/producto (Admin / Warehouse)',
+    summary: 'Registrar una autoparte/producto (Solo Admin)',
   })
   createProduct(
     @BranchId() branchId: string,
@@ -372,8 +378,8 @@ export class InventoryController {
   }
 
   @Patch('products/:id')
-  @Roles('admin', 'warehouse')
-  @ApiOperation({ summary: 'Actualizar un producto (Admin / Warehouse)' })
+  @Roles('admin')
+  @ApiOperation({ summary: 'Actualizar un producto (Solo Admin)' })
   updateProduct(
     @BranchId() branchId: string,
     @Param('id') id: string,
@@ -389,8 +395,8 @@ export class InventoryController {
   }
 
   @Delete('products/:id')
-  @Roles('admin', 'warehouse')
-  @ApiOperation({ summary: 'Dar de baja un producto (Admin / Warehouse)' })
+  @Roles('admin')
+  @ApiOperation({ summary: 'Dar de baja un producto (Solo Admin)' })
   deleteProduct(@BranchId() branchId: string, @Param('id') id: string) {
     return this.inventoryService.deleteProduct(id, branchId);
   }
@@ -433,11 +439,100 @@ export class InventoryController {
   }
 
   @Delete('movements/:id')
-  @Roles('admin', 'warehouse')
+  @Roles('admin')
   @ApiOperation({
-    summary: 'Eliminar o revertir un movimiento de stock (Admin / Warehouse)',
+    summary: 'Eliminar o revertir un movimiento de stock (Solo Admin)',
   })
   deleteMovement(@BranchId() branchId: string, @Param('id') id: string) {
     return this.inventoryService.deleteMovement(id, branchId);
+  }
+
+  // --- RECEPTION & BOX MANAGEMENT (Draft & QR Boxes) ---
+
+  @Post('receptions')
+  @Roles('admin', 'warehouse', 'seller')
+  @ApiOperation({
+    summary:
+      'Registrar recepción física de mercancía en borrador/draft (Admin / Warehouse / Seller)',
+  })
+  createReception(
+    @BranchId() branchId: string,
+    @Body() dto: CreateStockReceptionDto,
+    @CurrentUser('_id') userId: string,
+  ) {
+    return this.inventoryService.createReception(dto, userId, branchId);
+  }
+
+  @Get('receptions')
+  @Roles('admin', 'warehouse', 'seller')
+  @ApiOperation({
+    summary:
+      'Listar recepciones de mercancía con filtros opcionales de estado (draft, approved, rejected)',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['draft', 'approved', 'rejected'],
+    description: 'Filtrar por estado de la recepción',
+  })
+  findAllReceptions(
+    @BranchId() branchId: string,
+    @Query('status') status?: string,
+  ) {
+    return this.inventoryService.findAllReceptions(branchId, status);
+  }
+
+  @Get('receptions/:id')
+  @Roles('admin', 'warehouse', 'seller')
+  @ApiOperation({
+    summary: 'Obtener detalle de una recepción por ID con sus cajas y códigos',
+  })
+  findReceptionById(
+    @BranchId() branchId: string,
+    @Param('id') id: string,
+  ) {
+    return this.inventoryService.findReceptionById(id, branchId);
+  }
+
+  @Patch('receptions/:id/approve')
+  @Roles('admin')
+  @ApiOperation({
+    summary:
+      'Aprobar recepción de mercancía y dejar cajas listas para ticket QR (Solo Admin)',
+  })
+  approveReception(
+    @BranchId() branchId: string,
+    @Param('id') id: string,
+    @CurrentUser('_id') userId: string,
+  ) {
+    return this.inventoryService.approveReception(id, userId, branchId);
+  }
+
+  @Patch('receptions/:id/reject')
+  @Roles('admin')
+  @ApiOperation({
+    summary: 'Rechazar una recepción de mercancía en borrador (Solo Admin)',
+  })
+  rejectReception(
+    @BranchId() branchId: string,
+    @Param('id') id: string,
+    @CurrentUser('_id') userId: string,
+    @Body('reason') reason?: string,
+  ) {
+    return this.inventoryService.rejectReception(id, userId, branchId, reason);
+  }
+
+  @Post('boxes/open')
+  @Roles('admin', 'warehouse', 'seller')
+  @ApiOperation({
+    summary:
+      'Abrir caja/lote escaneando código QR: suma piezas al stock y unifica precio de venta en mostrador',
+  })
+  openBox(
+    @BranchId() branchId: string,
+    @Body() dto: OpenBoxDto,
+    @CurrentUser('_id') userId: string,
+  ) {
+    return this.inventoryService.openBox(dto.boxCode, userId, branchId);
   }
 }

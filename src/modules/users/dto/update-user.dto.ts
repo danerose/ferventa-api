@@ -83,4 +83,12 @@ export class UpdateUserDto {
   @IsBoolean({ message: i18nValidationMessage('validation.isBoolean') })
   @IsOptional()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    example: '1234',
+    description: 'PIN de 4 dígitos para asistencia en kiosco',
+  })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  accessPin?: string;
 }

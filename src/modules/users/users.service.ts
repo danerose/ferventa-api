@@ -48,17 +48,29 @@ export class UsersService implements OnModuleInit {
           'vehicles:read',
           'appointments:create',
           'appointments:read',
+          'appointments:update',
+          'appointments:cancel',
+          'appointments:reschedule',
+          'appointments:check-in',
+          'maintenance:read',
+          'maintenance:update',
+          'maintenance:reception',
           'inventory:read',
+          'inventory:brands:create',
+          'inventory:categories:create',
+          'inventory:receptions:create',
+          'inventory:receptions:read',
         ],
         description: 'Vendedor / Asesor del taller',
       },
       {
         name: 'warehouse',
         permissions: [
-          'inventory:create',
           'inventory:read',
-          'inventory:update',
-          'inventory:movements:create',
+          'inventory:brands:create',
+          'inventory:categories:create',
+          'inventory:receptions:create',
+          'inventory:receptions:read',
           'inventory:movements:read',
         ],
         description: 'Encargado de almacén e inventario',
@@ -67,8 +79,11 @@ export class UsersService implements OnModuleInit {
         name: 'mechanic',
         permissions: [
           'appointments:read',
+          'appointments:check-in',
           'maintenance:read',
+          'maintenance:reception',
           'maintenance:update',
+          'maintenance:update-status',
           'maintenance:evidence',
           'inventory:read',
         ],
@@ -77,10 +92,20 @@ export class UsersService implements OnModuleInit {
     ];
 
     for (const roleDef of defaultRoles) {
-      const exists = await this.roleModel.findOne({ name: roleDef.name });
-      if (!exists) {
+      const existing = await this.roleModel.findOne({ name: roleDef.name });
+      if (!existing) {
         await this.roleModel.create(roleDef);
         console.log(`Role '${roleDef.name}' seeded successfully.`);
+      } else {
+        await this.roleModel.updateOne(
+          { name: roleDef.name },
+          {
+            $set: {
+              permissions: roleDef.permissions,
+              description: roleDef.description,
+            },
+          },
+        );
       }
     }
   }
@@ -279,6 +304,7 @@ export class UsersService implements OnModuleInit {
       role: role._id,
       branches: createUserDto.branches || [],
       phone,
+      accessPin: createUserDto.accessPin ? createUserDto.accessPin.trim() : null,
     });
 
     let saved: UserDocument;
@@ -385,6 +411,12 @@ Puedes iniciar sesión en el siguiente enlace:
 
     if (updateUserDto.isActive !== undefined) {
       user.isActive = updateUserDto.isActive;
+    }
+
+    if (updateUserDto.accessPin !== undefined) {
+      user.accessPin = updateUserDto.accessPin
+        ? updateUserDto.accessPin.trim()
+        : null;
     }
 
     if (updateUserDto.roleId) {

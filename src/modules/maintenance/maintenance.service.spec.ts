@@ -7,6 +7,7 @@ import { VehiclesService } from '../vehicles/vehicles.service';
 import { CustomersService } from '../customers/customers.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { SalesService } from '../sales/sales.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 describe('MaintenanceService - findAll', () => {
   let service: MaintenanceService;
@@ -49,6 +50,10 @@ describe('MaintenanceService - findAll', () => {
         {
           provide: SalesService,
           useValue: {},
+        },
+        {
+          provide: AuditLogsService,
+          useValue: { logAction: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();

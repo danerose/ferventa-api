@@ -30,6 +30,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { I18nContext } from 'nestjs-i18n';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { BranchGuard } from '../../common/guards/branch.guard';
 import { BranchId } from '../../common/decorators/branch-id.decorator';
 
@@ -299,11 +300,13 @@ export class AppointmentsController {
     @BranchId() branchId: string,
     @Param('id') id: string,
     @Body() rejectAppointmentDto: RejectAppointmentDto,
+    @CurrentUser('_id') userId: string,
   ) {
     return this.appointmentsService.reject(
       id,
       branchId,
       rejectAppointmentDto.message,
+      userId,
     );
   }
 
@@ -332,7 +335,7 @@ export class AppointmentsController {
 
   @Patch(':id/check-in')
   @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
-  @Roles('admin', 'seller')
+  @Roles('admin', 'seller', 'mechanic')
   @ApiBearerAuth()
   @ApiOperation({
     summary:
@@ -344,6 +347,22 @@ export class AppointmentsController {
     @Body('receptionNotes') receptionNotes?: string,
   ) {
     return this.appointmentsService.checkIn(id, branchId, receptionNotes);
+  }
+
+  @Patch(':id/cancel')
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
+  @Roles('admin', 'seller')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Cancelar una cita agendada (Admin / Seller)',
+  })
+  cancel(
+    @BranchId() branchId: string,
+    @Param('id') id: string,
+    @Body('notes') notes?: string,
+    @CurrentUser('_id') userId?: string,
+  ) {
+    return this.appointmentsService.cancel(id, branchId, notes, userId);
   }
 
   @Patch(':id/no-show')

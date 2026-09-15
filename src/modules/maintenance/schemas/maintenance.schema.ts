@@ -80,6 +80,29 @@ export class MaintenanceNoteEntry {
   createdBy?: User | null;
 }
 
+@Schema({ _id: false })
+export class NotificationEntry {
+  @Prop({ type: Date, default: Date.now })
+  sentAt: Date;
+
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    ref: 'User',
+    required: false,
+    default: null,
+  })
+  sentBy?: User | null;
+
+  @Prop({ type: String, default: 'whatsapp' })
+  channel: string; // 'whatsapp', 'call', 'sms', etc.
+
+  @Prop({ type: String, default: '' })
+  notes?: string;
+
+  @Prop({ type: String, default: '' })
+  message?: string;
+}
+
 @Schema({ timestamps: true })
 export class Maintenance {
   @Prop({
@@ -188,9 +211,13 @@ export class Maintenance {
   @Prop({ type: Date, default: null, index: true })
   completedAt?: Date | null;
 
-  /** Fecha en que se le avisó al cliente que el vehículo está listo */
+  /** Fecha en que se le avisó al cliente por última vez que el vehículo está listo */
   @Prop({ type: Date, default: null, index: true })
   notifiedAt?: Date | null;
+
+  /** Historial acumulativo de avisos/notificaciones enviadas al cliente */
+  @Prop({ type: [NotificationEntry], default: [] })
+  notificationHistory: NotificationEntry[];
 
   /** Fecha en que el vehículo fue retirado/entregado al cliente (delivered) */
   @Prop({ type: Date, default: null, index: true })

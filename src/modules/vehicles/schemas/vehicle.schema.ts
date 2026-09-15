@@ -21,19 +21,20 @@ export class Vehicle {
   @Prop({ required: true, trim: true })
   model: string;
 
-  @Prop({ required: true, type: Number })
-  year: number;
+  @Prop({ required: false, type: Number })
+  year?: number;
 
   @Prop({
-    required: true,
+    required: false,
     trim: true,
     uppercase: true,
     index: true,
+    default: '',
   })
-  serialNumberLastFour: string;
+  serialNumberLastFour?: string;
 
   @Prop({ type: String, default: '' })
-  color: string;
+  color?: string;
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Branch', required: true })
   branch: Branch | any;

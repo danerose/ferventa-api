@@ -10,7 +10,10 @@ import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { CustomersService } from '../customers/customers.service';
 import { I18nContext } from 'nestjs-i18n';
-import { buildFuzzyRegex } from '../../common/utils/search.util';
+import {
+  buildFuzzyRegex,
+  calculateVehicleMatchScore,
+} from '../../common/utils/search.util';
 
 @Injectable()
 export class VehiclesService {
@@ -23,35 +26,126 @@ export class VehiclesService {
     createVehicleDto: CreateVehicleDto,
     branchId: string,
   ): Promise<VehicleDocument> {
-    // Verify customer exists and belongs to the same branch
-    await this.customersService.findById(createVehicleDto.customerId, branchId);
+    return this.findOrCreateByClosestMatch(
+      createVehicleDto.customerId,
+      createVehicleDto,
+      branchId,
+    );
+  }
 
-    // Verify serial number unique for this customer in this branch
-    const formattedSerial = createVehicleDto.serialNumberLastFour
+  /**
+   * Finds the closest matching vehicle for a customer in the branch,
+   * or creates a new one if no close match is found.
+   */
+  async findOrCreateByClosestMatch(
+    customerId: string,
+    dto: {
+      brand: string;
+      model: string;
+      year?: number;
+      serialNumberLastFour?: string;
+      color?: string;
+    },
+    branchId: string,
+  ): Promise<VehicleDocument> {
+    // Verify customer exists and belongs to the same branch
+    await this.customersService.findById(customerId, branchId);
+
+    const formattedBrand = (dto.brand || '').trim();
+    const formattedModel = (dto.model || '').trim();
+    const formattedYear =
+      dto.year !== undefined && dto.year !== null && !isNaN(Number(dto.year))
+        ? Number(dto.year)
+        : undefined;
+    const formattedSerial = (dto.serialNumberLastFour || '')
       .toUpperCase()
       .trim();
-    const existing = await this.vehicleModel.findOne({
-      customer: createVehicleDto.customerId as any,
-      serialNumberLastFour: formattedSerial,
-      branch: branchId,
-    });
-    if (existing) {
-      const i18n = I18nContext.current();
-      throw new BadRequestException(
-        i18n
-          ? i18n.t('common.errors.vehicleSerialNumberRegistered')
-          : 'Este cliente ya tiene registrado un vehículo con este número de serie (últimos 4 dígitos)',
+    const formattedColor = (dto.color || '').trim();
+
+    // Check if customer already has vehicles in this branch
+    const customerVehicles = await this.vehicleModel
+      .find({
+        customer: customerId as any,
+        branch: branchId,
+      })
+      .populate('customer')
+      .exec();
+
+    let bestMatch: VehicleDocument | null = null;
+    let bestScore = 0;
+    const MATCH_THRESHOLD = 0.65;
+
+    for (const vehicle of customerVehicles) {
+      const score = calculateVehicleMatchScore(
+        {
+          brand: formattedBrand,
+          model: formattedModel,
+          year: formattedYear,
+          serialNumberLastFour: formattedSerial,
+        },
+        {
+          brand: vehicle.brand,
+          model: vehicle.model,
+          year: vehicle.year,
+          serialNumberLastFour: vehicle.serialNumberLastFour,
+        },
       );
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = vehicle;
+      }
     }
 
+    if (bestMatch && bestScore >= MATCH_THRESHOLD) {
+      // Enrich matched vehicle with incoming fields if it was missing them
+      let hasChanges = false;
+      if (formattedSerial && !bestMatch.serialNumberLastFour) {
+        bestMatch.serialNumberLastFour = formattedSerial;
+        hasChanges = true;
+      }
+      if (formattedYear !== undefined && !bestMatch.year) {
+        bestMatch.year = formattedYear;
+        hasChanges = true;
+      }
+      if (formattedColor && !bestMatch.color) {
+        bestMatch.color = formattedColor;
+        hasChanges = true;
+      }
+
+      if (hasChanges) {
+        await bestMatch.save();
+      }
+
+      return bestMatch;
+    }
+
+    // No close match found or no vehicles registered: create a new vehicle for this customer
     const created = new this.vehicleModel({
-      ...createVehicleDto,
+      customer: customerId as any,
       branch: branchId,
-      customer: createVehicleDto.customerId as any,
+      brand: formattedBrand,
+      model: formattedModel,
+      ...(formattedYear !== undefined ? { year: formattedYear } : {}),
       serialNumberLastFour: formattedSerial,
+      color: formattedColor,
     });
 
     return (await created.save()).populate('customer');
+  }
+
+  async findOrCreateByExactMatch(
+    customerId: string,
+    dto: {
+      brand: string;
+      model: string;
+      year?: number;
+      serialNumberLastFour?: string;
+      color?: string;
+    },
+    branchId: string,
+  ): Promise<VehicleDocument> {
+    return this.findOrCreateByClosestMatch(customerId, dto, branchId);
   }
 
   async findAll(
@@ -150,27 +244,7 @@ export class VehiclesService {
       const formattedSerial = updateVehicleDto.serialNumberLastFour
         .toUpperCase()
         .trim();
-      if (formattedSerial !== vehicle.serialNumberLastFour) {
-        const targetCustomerId =
-          updateVehicleDto.customerId ||
-          (vehicle.customer as any)?._id ||
-          vehicle.customer;
-        const existing = await this.vehicleModel.findOne({
-          customer: targetCustomerId as any,
-          serialNumberLastFour: formattedSerial,
-          branch: branchId,
-          _id: { $ne: id },
-        });
-        if (existing) {
-          const i18n = I18nContext.current();
-          throw new BadRequestException(
-            i18n
-              ? i18n.t('common.errors.vehicleSerialNumberRegistered')
-              : 'Este cliente ya tiene registrado otro vehículo con este número de serie (últimos 4 dígitos)',
-          );
-        }
-        vehicle.serialNumberLastFour = formattedSerial;
-      }
+      vehicle.serialNumberLastFour = formattedSerial;
     }
 
     if (updateVehicleDto.brand) vehicle.brand = updateVehicleDto.brand;

@@ -23,18 +23,18 @@ export class DirectReceptionVehicleDto {
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
   model: string;
 
-  @ApiProperty({ example: 2018, description: 'Año del vehículo' })
+  @ApiPropertyOptional({ example: 2018, description: 'Año del vehículo' })
   @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })
-  @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
-  year: number;
+  @IsOptional()
+  year?: number;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: '1234',
     description: 'Últimos 4 dígitos del número de serie o identificador',
   })
   @IsString({ message: i18nValidationMessage('validation.isString') })
-  @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
-  serialNumberLastFour: string;
+  @IsOptional()
+  serialNumberLastFour?: string;
 
   @ApiPropertyOptional({ example: 'Rojo', description: 'Color del vehículo' })
   @IsString({ message: i18nValidationMessage('validation.isString') })

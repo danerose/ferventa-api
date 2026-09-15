@@ -7,6 +7,7 @@ import { InventoryService } from '../inventory/inventory.service';
 import { QuotesService } from '../quotes/quotes.service';
 import { MercadoPagoService } from './mercado-pago.service';
 import { ServicesService } from '../services/services.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { Types } from 'mongoose';
 
 describe('SalesService', () => {
@@ -53,6 +54,10 @@ describe('SalesService', () => {
         {
           provide: ServicesService,
           useValue: {},
+        },
+        {
+          provide: AuditLogsService,
+          useValue: { logAction: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();

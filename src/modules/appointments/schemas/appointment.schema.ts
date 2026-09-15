@@ -12,11 +12,14 @@ export class AppointmentVehicle {
   @Prop({ required: true, trim: true })
   model: string;
 
-  @Prop({ required: true, type: Number })
-  year: number;
+  @Prop({ required: false, type: Number })
+  year?: number;
 
-  @Prop({ required: true, trim: true, uppercase: true })
-  serialNumberLastFour: string;
+  @Prop({ required: false, trim: true, uppercase: true, default: '' })
+  serialNumberLastFour?: string;
+
+  @Prop({ required: false, trim: true, default: '' })
+  color?: string;
 }
 
 @Schema({ timestamps: true })

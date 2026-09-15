@@ -78,4 +78,13 @@ export class CreateUserDto {
     message: i18nValidationMessage('validation.isMongoId'),
   })
   branches: string[];
+
+  @ApiProperty({
+    example: '1234',
+    description: 'PIN de 4 dígitos para asistencia en kiosco (opcional)',
+    required: false,
+  })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  accessPin?: string;
 }

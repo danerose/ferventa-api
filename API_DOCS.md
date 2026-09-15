@@ -59,7 +59,8 @@ Base URL: `/api`
   "roleId": "string",
   "branches": [
     "string"
-  ]
+  ],
+  "accessPin": "string"
 }
 ```
 
@@ -265,7 +266,8 @@ Base URL: `/api`
     "string"
   ],
   "roleId": "string",
-  "isActive": true
+  "isActive": true,
+  "accessPin": "string"
 }
 ```
 
@@ -492,7 +494,7 @@ Base URL: `/api`
       "branches": [
         "6a5e6e9a0..."
       ],
-      "lastLoginAt": "2026-09-09T20:08:23.488Z"
+      "lastLoginAt": "2026-09-15T08:13:01.057Z"
     },
     "message": "Perfil retornado con éxito"
   }
@@ -503,7 +505,7 @@ Base URL: `/api`
 ## Inventario
 
 ### [POST] /inventory/brands
-**Summary**: Registrar una marca de autopartes (Admin / Warehouse)
+**Summary**: Registrar una marca de autopartes (Admin / Warehouse / Seller)
 
 **Request Body**:
 ```json
@@ -573,7 +575,7 @@ Base URL: `/api`
 ---
 
 ### [DELETE] /inventory/brands/{id}
-**Summary**: Eliminar una marca (Admin / Warehouse)
+**Summary**: Eliminar una marca (Solo Admin)
 
 **Parameters**:
 - `id` (path):  (Required)
@@ -591,7 +593,7 @@ Base URL: `/api`
 ---
 
 ### [POST] /inventory/categories
-**Summary**: Registrar una categoría (Admin / Warehouse)
+**Summary**: Registrar una categoría (Admin / Warehouse / Seller)
 
 **Request Body**:
 ```json
@@ -661,7 +663,7 @@ Base URL: `/api`
 ---
 
 ### [DELETE] /inventory/categories/{id}
-**Summary**: Eliminar una categoría (Admin / Warehouse)
+**Summary**: Eliminar una categoría (Solo Admin)
 
 **Parameters**:
 - `id` (path):  (Required)
@@ -794,7 +796,7 @@ Base URL: `/api`
 ---
 
 ### [POST] /inventory/products
-**Summary**: Registrar una autoparte/producto (Admin / Warehouse)
+**Summary**: Registrar una autoparte/producto (Solo Admin)
 
 **Request Body**:
 ```json
@@ -915,7 +917,7 @@ Base URL: `/api`
 ---
 
 ### [PATCH] /inventory/products/{id}
-**Summary**: Actualizar un producto (Admin / Warehouse)
+**Summary**: Actualizar un producto (Solo Admin)
 
 **Parameters**:
 - `id` (path):  (Required)
@@ -956,7 +958,7 @@ Base URL: `/api`
 ---
 
 ### [DELETE] /inventory/products/{id}
-**Summary**: Dar de baja un producto (Admin / Warehouse)
+**Summary**: Dar de baja un producto (Solo Admin)
 
 **Parameters**:
 - `id` (path):  (Required)
@@ -1034,7 +1036,7 @@ Base URL: `/api`
 ---
 
 ### [DELETE] /inventory/movements/{id}
-**Summary**: Eliminar o revertir un movimiento de stock (Admin / Warehouse)
+**Summary**: Eliminar o revertir un movimiento de stock (Solo Admin)
 
 **Parameters**:
 - `id` (path):  (Required)
@@ -1046,6 +1048,404 @@ Base URL: `/api`
     "success": true,
     "data": null,
     "message": "Success"
+  }
+  ```
+
+---
+
+### [POST] /inventory/receptions
+**Summary**: Registrar recepción física de mercancía en borrador/draft (Admin / Warehouse / Seller)
+
+**Request Body**:
+```json
+{
+  "providerId": "string",
+  "items": [
+    {
+      "productId": "string",
+      "quantity": 0,
+      "costPrice": 0,
+      "sellingPrice": 0
+    }
+  ],
+  "invoiceOrFolio": "string",
+  "notes": "string"
+}
+```
+
+**Responses**:
+- `201`: 
+  ```json
+  {
+    "success": true,
+    "data": {
+      "_id": "60d5ec49c6d48227b409748a",
+      "branch": "60d5ec49c6d48227b409748b",
+      "provider": {
+        "_id": "60d5ec49c6d48227b409748c",
+        "name": "Distribuidora Castrol México",
+        "providerCode": "PRV-001"
+      },
+      "receivedBy": {
+        "_id": "60d5ec49c6d48227b409748d",
+        "name": "Juan Vendedor",
+        "email": "juan@ferventa.com"
+      },
+      "approvedBy": null,
+      "approvedAt": null,
+      "status": "draft",
+      "invoiceOrFolio": "FAC-98421",
+      "notes": "Lote de 24 botellas de aceite sintético 5W-30",
+      "items": [
+        {
+          "_id": "60d5ec49c6d48227b409748f",
+          "product": {
+            "_id": "60d5ec49c6d48227b4097490",
+            "name": "Aceite Sintético 5W-30 1L",
+            "sku": "ACE-SYN-5W30",
+            "sellingPrice": 145,
+            "brand": {
+              "_id": "60d5ec49c6d48227b409749a",
+              "name": "Castrol"
+            },
+            "category": {
+              "_id": "60d5ec49c6d48227b409749b",
+              "name": "Aceites y Lubricantes"
+            }
+          },
+          "sku": "ACE-SYN-5W30",
+          "name": "Aceite Sintético 5W-30 1L",
+          "quantity": 12,
+          "costPrice": 110,
+          "sellingPrice": 145,
+          "boxCode": "BOX-M8B2X-1-042",
+          "isBoxSealed": true,
+          "openedAt": null,
+          "openedBy": null
+        }
+      ],
+      "createdAt": "2026-09-14T17:00:00.000Z",
+      "updatedAt": "2026-09-14T18:30:00.000Z"
+    },
+    "message": "Recepción registrada en borrador"
+  }
+  ```
+
+---
+
+### [GET] /inventory/receptions
+**Summary**: Listar recepciones de mercancía con filtros opcionales de estado (draft, approved, rejected)
+
+**Parameters**:
+- `status` (query): Filtrar por estado de la recepción 
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "_id": "60d5ec49c6d48227b409748a",
+        "branch": "60d5ec49c6d48227b409748b",
+        "provider": {
+          "_id": "60d5ec49c6d48227b409748c",
+          "name": "Distribuidora Castrol México",
+          "providerCode": "PRV-001"
+        },
+        "receivedBy": {
+          "_id": "60d5ec49c6d48227b409748d",
+          "name": "Juan Vendedor",
+          "email": "juan@ferventa.com"
+        },
+        "approvedBy": {
+          "_id": "60d5ec49c6d48227b409748e",
+          "name": "Administrador Principal",
+          "email": "admin@ferventa.com"
+        },
+        "approvedAt": "2026-09-14T18:30:00.000Z",
+        "status": "approved",
+        "invoiceOrFolio": "FAC-98421",
+        "notes": "Lote de 24 botellas de aceite sintético 5W-30",
+        "items": [
+          {
+            "_id": "60d5ec49c6d48227b409748f",
+            "product": {
+              "_id": "60d5ec49c6d48227b4097490",
+              "name": "Aceite Sintético 5W-30 1L",
+              "sku": "ACE-SYN-5W30",
+              "sellingPrice": 145,
+              "brand": {
+                "_id": "60d5ec49c6d48227b409749a",
+                "name": "Castrol"
+              },
+              "category": {
+                "_id": "60d5ec49c6d48227b409749b",
+                "name": "Aceites y Lubricantes"
+              }
+            },
+            "sku": "ACE-SYN-5W30",
+            "name": "Aceite Sintético 5W-30 1L",
+            "quantity": 12,
+            "costPrice": 110,
+            "sellingPrice": 145,
+            "boxCode": "BOX-M8B2X-1-042",
+            "isBoxSealed": true,
+            "openedAt": null,
+            "openedBy": null
+          }
+        ],
+        "createdAt": "2026-09-14T17:00:00.000Z",
+        "updatedAt": "2026-09-14T18:30:00.000Z"
+      }
+    ],
+    "message": "Recepciones obtenidas exitosamente"
+  }
+  ```
+
+---
+
+### [GET] /inventory/receptions/{id}
+**Summary**: Obtener detalle de una recepción por ID con sus cajas y códigos
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": {
+      "_id": "60d5ec49c6d48227b409748a",
+      "branch": "60d5ec49c6d48227b409748b",
+      "provider": {
+        "_id": "60d5ec49c6d48227b409748c",
+        "name": "Distribuidora Castrol México",
+        "providerCode": "PRV-001"
+      },
+      "receivedBy": {
+        "_id": "60d5ec49c6d48227b409748d",
+        "name": "Juan Vendedor",
+        "email": "juan@ferventa.com"
+      },
+      "approvedBy": {
+        "_id": "60d5ec49c6d48227b409748e",
+        "name": "Administrador Principal",
+        "email": "admin@ferventa.com"
+      },
+      "approvedAt": "2026-09-14T18:30:00.000Z",
+      "status": "approved",
+      "invoiceOrFolio": "FAC-98421",
+      "notes": "Lote de 24 botellas de aceite sintético 5W-30",
+      "items": [
+        {
+          "_id": "60d5ec49c6d48227b409748f",
+          "product": {
+            "_id": "60d5ec49c6d48227b4097490",
+            "name": "Aceite Sintético 5W-30 1L",
+            "sku": "ACE-SYN-5W30",
+            "sellingPrice": 145,
+            "brand": {
+              "_id": "60d5ec49c6d48227b409749a",
+              "name": "Castrol"
+            },
+            "category": {
+              "_id": "60d5ec49c6d48227b409749b",
+              "name": "Aceites y Lubricantes"
+            }
+          },
+          "sku": "ACE-SYN-5W30",
+          "name": "Aceite Sintético 5W-30 1L",
+          "quantity": 12,
+          "costPrice": 110,
+          "sellingPrice": 145,
+          "boxCode": "BOX-M8B2X-1-042",
+          "isBoxSealed": true,
+          "openedAt": null,
+          "openedBy": null
+        }
+      ],
+      "createdAt": "2026-09-14T17:00:00.000Z",
+      "updatedAt": "2026-09-14T18:30:00.000Z"
+    },
+    "message": "Detalle de recepción obtenido exitosamente"
+  }
+  ```
+
+---
+
+### [PATCH] /inventory/receptions/{id}/approve
+**Summary**: Aprobar recepción de mercancía y dejar cajas listas para ticket QR (Solo Admin)
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": {
+      "_id": "60d5ec49c6d48227b409748a",
+      "branch": "60d5ec49c6d48227b409748b",
+      "provider": {
+        "_id": "60d5ec49c6d48227b409748c",
+        "name": "Distribuidora Castrol México",
+        "providerCode": "PRV-001"
+      },
+      "receivedBy": {
+        "_id": "60d5ec49c6d48227b409748d",
+        "name": "Juan Vendedor",
+        "email": "juan@ferventa.com"
+      },
+      "approvedBy": {
+        "_id": "60d5ec49c6d48227b409748e",
+        "name": "Administrador Principal",
+        "email": "admin@ferventa.com"
+      },
+      "approvedAt": "2026-09-14T18:30:00.000Z",
+      "status": "approved",
+      "invoiceOrFolio": "FAC-98421",
+      "notes": "Lote de 24 botellas de aceite sintético 5W-30",
+      "items": [
+        {
+          "_id": "60d5ec49c6d48227b409748f",
+          "product": {
+            "_id": "60d5ec49c6d48227b4097490",
+            "name": "Aceite Sintético 5W-30 1L",
+            "sku": "ACE-SYN-5W30",
+            "sellingPrice": 145,
+            "brand": {
+              "_id": "60d5ec49c6d48227b409749a",
+              "name": "Castrol"
+            },
+            "category": {
+              "_id": "60d5ec49c6d48227b409749b",
+              "name": "Aceites y Lubricantes"
+            }
+          },
+          "sku": "ACE-SYN-5W30",
+          "name": "Aceite Sintético 5W-30 1L",
+          "quantity": 12,
+          "costPrice": 110,
+          "sellingPrice": 145,
+          "boxCode": "BOX-M8B2X-1-042",
+          "isBoxSealed": true,
+          "openedAt": null,
+          "openedBy": null
+        }
+      ],
+      "createdAt": "2026-09-14T17:00:00.000Z",
+      "updatedAt": "2026-09-14T18:30:00.000Z"
+    },
+    "message": "Recepción aprobada exitosamente"
+  }
+  ```
+
+---
+
+### [PATCH] /inventory/receptions/{id}/reject
+**Summary**: Rechazar una recepción de mercancía en borrador (Solo Admin)
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": {
+      "_id": "60d5ec49c6d48227b409748a",
+      "branch": "60d5ec49c6d48227b409748b",
+      "provider": {
+        "_id": "60d5ec49c6d48227b409748c",
+        "name": "Distribuidora Castrol México",
+        "providerCode": "PRV-001"
+      },
+      "receivedBy": {
+        "_id": "60d5ec49c6d48227b409748d",
+        "name": "Juan Vendedor",
+        "email": "juan@ferventa.com"
+      },
+      "approvedBy": {
+        "_id": "60d5ec49c6d48227b409748e",
+        "name": "Administrador Principal",
+        "email": "admin@ferventa.com"
+      },
+      "approvedAt": "2026-09-14T18:30:00.000Z",
+      "status": "rejected",
+      "invoiceOrFolio": "FAC-98421",
+      "notes": "Lote de 24 botellas de aceite sintético 5W-30",
+      "items": [
+        {
+          "_id": "60d5ec49c6d48227b409748f",
+          "product": {
+            "_id": "60d5ec49c6d48227b4097490",
+            "name": "Aceite Sintético 5W-30 1L",
+            "sku": "ACE-SYN-5W30",
+            "sellingPrice": 145,
+            "brand": {
+              "_id": "60d5ec49c6d48227b409749a",
+              "name": "Castrol"
+            },
+            "category": {
+              "_id": "60d5ec49c6d48227b409749b",
+              "name": "Aceites y Lubricantes"
+            }
+          },
+          "sku": "ACE-SYN-5W30",
+          "name": "Aceite Sintético 5W-30 1L",
+          "quantity": 12,
+          "costPrice": 110,
+          "sellingPrice": 145,
+          "boxCode": "BOX-M8B2X-1-042",
+          "isBoxSealed": true,
+          "openedAt": null,
+          "openedBy": null
+        }
+      ],
+      "createdAt": "2026-09-14T17:00:00.000Z",
+      "updatedAt": "2026-09-14T18:30:00.000Z",
+      "rejectionReason": "No coincide con la factura física"
+    },
+    "message": "Recepción rechazada"
+  }
+  ```
+
+---
+
+### [POST] /inventory/boxes/open
+**Summary**: Abrir caja/lote escaneando código QR: suma piezas al stock y unifica precio de venta en mostrador
+
+**Request Body**:
+```json
+{
+  "boxCode": "string"
+}
+```
+
+**Responses**:
+- `201`: 
+  ```json
+  {
+    "success": true,
+    "data": {
+      "success": true,
+      "message": "Caja BOX-M8B2X-1-042 abierta exitosamente. Se agregaron 12 piezas al stock (Total: 15) y el precio se actualizó a $145",
+      "boxCode": "BOX-M8B2X-1-042",
+      "product": {
+        "_id": "60d5ec49c6d48227b4097490",
+        "name": "Aceite Sintético 5W-30 1L",
+        "sku": "ACE-SYN-5W30",
+        "previousStock": 3,
+        "currentStock": 15,
+        "previousSellingPrice": 130,
+        "currentSellingPrice": 145
+      }
+    },
+    "message": "Caja abierta y precio unificado en mostrador exitosamente"
   }
   ```
 
@@ -1732,8 +2132,67 @@ Base URL: `/api`
   ```json
   {
     "success": true,
-    "data": null,
-    "message": "Success"
+    "data": {
+      "appointment": {
+        "_id": "60d5ec49c6d48227b4097493",
+        "status": "completed",
+        "receptionNotes": "Se recibe con 1/4 de tanque, rayón en puerta derecha",
+        "customer": {
+          "_id": "60d5ec49c6d48227b4097494",
+          "name": "Roberto García",
+          "phone": "8112345678"
+        }
+      },
+      "maintenance": {
+        "_id": "60d5ec49c6d48227b4097495",
+        "status": "not_started",
+        "receptionNotes": "Se recibe con 1/4 de tanque, rayón en puerta derecha",
+        "receptionDate": "2026-09-14T19:35:00.000Z",
+        "customer": "60d5ec49c6d48227b4097494",
+        "vehicle": "60d5ec49c6d48227b4097496",
+        "appointment": "60d5ec49c6d48227b4097493"
+      }
+    },
+    "message": "Vehículo recibido en taller para cita agendada"
+  }
+  ```
+
+---
+
+### [PATCH] /appointments/{id}/cancel
+**Summary**: Cancelar una cita agendada (Admin / Seller)
+
+**Parameters**:
+- `id` (path):  (Required)
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": {
+      "_id": "60d5ec49c6d48227b4097493",
+      "branch": "60d5ec49c6d48227b409748b",
+      "customer": {
+        "_id": "60d5ec49c6d48227b4097494",
+        "name": "Roberto García",
+        "phone": "8112345678"
+      },
+      "vehicle": {
+        "brand": "Nissan",
+        "model": "Versa",
+        "year": 2020,
+        "serialNumberLastFour": "8492",
+        "color": "Plata"
+      },
+      "scheduledAt": "2026-09-15T10:00:00.000Z",
+      "duration": 60,
+      "status": "cancelled",
+      "serviceRequested": "Afinación Mayor",
+      "notes": "Cancelada por el cliente por motivo de viaje",
+      "createdAt": "2026-09-14T12:00:00.000Z"
+    },
+    "message": "Cita cancelada exitosamente"
   }
   ```
 
@@ -3101,6 +3560,108 @@ Base URL: `/api`
 
 ---
 
+## Asistencia Kiosco (Tableta de Sucursal)
+
+### [GET] /attendance/kiosk/employees
+**Summary**: Obtener empleados activos de la sucursal y su estado actual para la interfaz del Kiosco
+
+**Parameters**:
+- `branchId` (query): ID de la sucursal (o mediante header x-branch-id) 
+- `x-branch-id` (header): ID de la sucursal activa en la tableta 
+
+**Responses**:
+- `200`: Lista de empleados con nombre, rol, estado de turno y si tienen turno activo.
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "_id": "60d5ec49c6d48227b409748c",
+        "name": "Carlos Mecánico",
+        "username": "carlos.mecanico",
+        "role": "mechanic",
+        "status": "working",
+        "hasActiveShift": true,
+        "activeBreak": null,
+        "currentWorkMinutes": 185
+      },
+      {
+        "_id": "60d5ec49c6d48227b409748d",
+        "name": "Luis Vendedor",
+        "username": "luis.vendedor",
+        "role": "seller",
+        "status": "on_break",
+        "hasActiveShift": true,
+        "activeBreak": {
+          "startTime": "2026-09-14T19:00:00.000Z",
+          "durationMinutes": 25,
+          "note": "Comida"
+        },
+        "currentWorkMinutes": 265
+      },
+      {
+        "_id": "60d5ec49c6d48227b409748e",
+        "name": "Mario Almacén",
+        "username": "mario.almacen",
+        "role": "warehouse",
+        "status": "off_shift",
+        "hasActiveShift": false,
+        "activeBreak": null,
+        "currentWorkMinutes": 0
+      }
+    ],
+    "message": "Lista de empleados de la sucursal para el kiosco"
+  }
+  ```
+
+---
+
+### [POST] /attendance/kiosk/clock
+**Summary**: Registrar entrada, salida o descanso en el Kiosco validando PIN de 4 dígitos
+
+**Request Body**:
+```json
+{
+  "branchId": "string",
+  "userId": "string",
+  "pin": "string",
+  "action": "clock-in",
+  "notes": "string"
+}
+```
+
+**Responses**:
+- `200`: Registro de asistencia exitoso.
+  ```json
+  {
+    "success": true,
+    "data": {
+      "success": true,
+      "message": "Entrada registrada exitosamente para Carlos Mecánico",
+      "action": "clock-in",
+      "userName": "Carlos Mecánico",
+      "timestamp": "2026-09-14T19:30:00.000Z",
+      "data": {
+        "_id": "60d5ec49c6d48227b4097491",
+        "user": "60d5ec49c6d48227b409748c",
+        "branch": "60d5ec49c6d48227b409748b",
+        "date": "2026-09-14",
+        "clockIn": "2026-09-14T19:30:00.000Z",
+        "clockOut": null,
+        "status": "working",
+        "totalWorkMinutes": 0,
+        "totalBreakMinutes": 0,
+        "netWorkMinutes": 0,
+        "breaks": []
+      }
+    },
+    "message": "Acción de asistencia registrada exitosamente"
+  }
+  ```
+- `401`: PIN de acceso inválido.
+
+---
+
 ## Pedidos Especiales (Orders)
 
 ### [POST] /orders
@@ -3286,6 +3847,79 @@ Base URL: `/api`
   "reason": "string"
 }
 ```
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": null,
+    "message": "Success"
+  }
+  ```
+
+---
+
+## Auditoría & Bitácora de Acciones (Audit Logs)
+
+### [GET] /audit-logs
+**Summary**: Consultar historial y bitácora de acciones por usuario (Solo Administrador)
+
+**Parameters**:
+- `module` (query): Filtrar por módulo (appointments, sales, maintenance, inventory, etc.) 
+- `action` (query): Filtrar por acción (cancelled, rejected, approved, etc.) 
+- `userId` (query): Filtrar por usuario que ejecutó la acción 
+- `entityId` (query): Filtrar por ID de la entidad (cita, venta, orden, etc.) 
+- `entityType` (query): Filtrar por tipo de entidad (Appointment, Sale, Maintenance, etc.) 
+- `from` (query): Fecha inicial (YYYY-MM-DD) 
+- `to` (query): Fecha final (YYYY-MM-DD) 
+- `search` (query): Búsqueda por texto o folio 
+
+**Responses**:
+- `200`: 
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "_id": "60d5ec49c6d48227b4097492",
+        "branch": {
+          "_id": "60d5ec49c6d48227b409748b",
+          "name": "Sucursal Matriz Centro"
+        },
+        "module": "inventory",
+        "action": "OPEN_BOX",
+        "description": "Caja BOX-M8B2X-1-042 abierta. 12 piezas ingresadas al stock. Precio venta unificado: $145",
+        "performedBy": {
+          "_id": "60d5ec49c6d48227b409748d",
+          "name": "Juan Vendedor",
+          "email": "juan@ferventa.com",
+          "role": "seller"
+        },
+        "entityId": "60d5ec49c6d48227b4097490",
+        "entityType": "Product",
+        "entityFolio": "",
+        "metadata": {
+          "boxCode": "BOX-M8B2X-1-042",
+          "sku": "ACE-SYN-5W30",
+          "quantity": 12,
+          "sellingPrice": 145,
+          "receptionId": "60d5ec49c6d48227b409748a"
+        },
+        "createdAt": "2026-09-14T19:32:00.000Z"
+      }
+    ],
+    "message": "Bitácora de auditoría obtenida exitosamente"
+  }
+  ```
+
+---
+
+### [GET] /audit-logs/entity/{entityId}
+**Summary**: Obtener todo el historial de auditoría de un elemento específico (cita, venta, orden, etc.) por su ID
+
+**Parameters**:
+- `entityId` (path):  (Required)
 
 **Responses**:
 - `200`: 

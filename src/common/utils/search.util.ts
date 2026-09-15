@@ -123,3 +123,157 @@ export function buildAtlasSearchStage(
     },
   };
 }
+
+/**
+ * Normalizes a string by lowercasing, removing diacritics and special characters.
+ */
+export function cleanSearchString(str?: string | null): string {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Standard Levenshtein Distance between two strings.
+ */
+export function levenshteinDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+
+  const matrix: number[][] = [];
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1,     // deletion
+        );
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+/**
+ * Normalized string similarity score between 0 and 1.
+ */
+export function stringSimilarity(a: string, b: string): number {
+  const s1 = cleanSearchString(a);
+  const s2 = cleanSearchString(b);
+  if (!s1 && !s2) return 1;
+  if (!s1 || !s2) return 0;
+  if (s1 === s2) return 1;
+
+  // Substring or token inclusion gives a strong baseline
+  if (s1.includes(s2) || s2.includes(s1)) {
+    const minLen = Math.min(s1.length, s2.length);
+    const maxLen = Math.max(s1.length, s2.length);
+    return Math.max(0.85, minLen / maxLen);
+  }
+
+  const dist = levenshteinDistance(s1, s2);
+  const maxLen = Math.max(s1.length, s2.length);
+  return Math.max(0, 1 - dist / maxLen);
+}
+
+/**
+ * Calculates a match score between an incoming vehicle input and an existing vehicle candidate.
+ * Takes into account brand similarity, model similarity, token inclusion (e.g. "RUNNER" in "RUNNER 2026"),
+ * serial number comparison, and year.
+ */
+export function calculateVehicleMatchScore(
+  input: {
+    brand: string;
+    model: string;
+    year?: number;
+    serialNumberLastFour?: string;
+  },
+  candidate: {
+    brand: string;
+    model: string;
+    year?: number;
+    serialNumberLastFour?: string;
+  },
+): number {
+  const inputBrand = cleanSearchString(input.brand);
+  const candBrand = cleanSearchString(candidate.brand);
+  const inputModel = cleanSearchString(input.model);
+  const candModel = cleanSearchString(candidate.model);
+
+  // 1. Brand similarity
+  let brandSim = stringSimilarity(inputBrand, candBrand);
+  if (
+    buildFuzzyRegex(inputBrand).test(candBrand) ||
+    buildFuzzyRegex(candBrand).test(inputBrand)
+  ) {
+    brandSim = Math.max(brandSim, 0.85);
+  }
+
+  // If brands are completely different (e.g. Nissan vs Yamaha), cannot be the same vehicle
+  if (brandSim < 0.45) {
+    return 0;
+  }
+
+  // 2. Model similarity
+  let modelSim = stringSimilarity(inputModel, candModel);
+  // Check token inclusion (e.g. input "RUNNER" inside candidate "RUNNER 2026")
+  const inputTokens = inputModel.split(' ').filter(Boolean);
+  const candTokens = candModel.split(' ').filter(Boolean);
+  if (inputTokens.length > 0 && candTokens.length > 0) {
+    const matchingInputTokens = inputTokens.filter((t) =>
+      candTokens.some((ct) => ct === t || stringSimilarity(t, ct) >= 0.8),
+    );
+    if (matchingInputTokens.length === inputTokens.length) {
+      modelSim = Math.max(modelSim, 0.9);
+    }
+  }
+  if (
+    buildFuzzyRegex(inputModel).test(candModel) ||
+    buildFuzzyRegex(candModel).test(inputModel)
+  ) {
+    modelSim = Math.max(modelSim, 0.85);
+  }
+
+  // 3. Combined string similarity
+  const inputFull = `${inputBrand} ${inputModel}`;
+  const candFull = `${candBrand} ${candModel}`;
+  const fullSim = stringSimilarity(inputFull, candFull);
+
+  let score = brandSim * 0.45 + modelSim * 0.45 + fullSim * 0.1;
+
+  // 4. Serial number comparison
+  const inSerial = (input.serialNumberLastFour || '').trim().toUpperCase();
+  const candSerial = (candidate.serialNumberLastFour || '').trim().toUpperCase();
+
+  if (inSerial && candSerial) {
+    if (inSerial === candSerial) {
+      score += 0.35; // Significant bonus for identical serial
+    } else {
+      score -= 0.6; // Heavy penalty: explicit different serial numbers mean different physical units
+    }
+  }
+
+  // 5. Year comparison
+  if (input.year && candidate.year) {
+    if (input.year === candidate.year) {
+      score += 0.05;
+    } else if (Math.abs(input.year - candidate.year) > 2) {
+      score -= 0.1;
+    }
+  }
+
+  return Math.max(0, Math.min(1.5, score));
+}
+

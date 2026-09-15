@@ -20,8 +20,9 @@ import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { CustomersService } from '../customers/customers.service';
 import { VehiclesService } from '../vehicles/vehicles.service';
-import { WhatsAppService } from './whatsapp.service';
 import { MaintenanceService } from '../maintenance/maintenance.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { WhatsAppService } from './whatsapp.service';
 import { I18nContext } from 'nestjs-i18n';
 import { buildFuzzyRegex } from '../../common/utils/search.util';
 
@@ -39,6 +40,7 @@ export class AppointmentsService {
     private readonly whatsAppService: WhatsAppService,
     @Inject(forwardRef(() => MaintenanceService))
     private readonly maintenanceService: MaintenanceService,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   async createDefaultScheduleForBranch(branchId: string) {
@@ -280,39 +282,17 @@ export class AppointmentsService {
       }
     }
 
-    const serialNumberLastFour =
-      createAppointmentDto.vehicle.serialNumberLastFour.toUpperCase().trim();
-    let vehicle = await this.vehiclesService.findByCustomerAndSerial(
+    const vehicle = await this.vehiclesService.findOrCreateByClosestMatch(
       customerId!,
-      serialNumberLastFour,
+      {
+        brand: createAppointmentDto.vehicle.brand,
+        model: createAppointmentDto.vehicle.model,
+        year: createAppointmentDto.vehicle.year,
+        serialNumberLastFour: createAppointmentDto.vehicle.serialNumberLastFour,
+        color: (createAppointmentDto.vehicle as any).color,
+      },
       branchId,
     );
-
-    if (vehicle) {
-      vehicle = await this.vehiclesService.update(
-        (vehicle._id as any).toString(),
-        branchId,
-        {
-          customerId: customerId!,
-          brand: createAppointmentDto.vehicle.brand,
-          model: createAppointmentDto.vehicle.model,
-          year: createAppointmentDto.vehicle.year,
-          color: (createAppointmentDto.vehicle as any).color,
-        },
-      );
-    } else {
-      vehicle = await this.vehiclesService.create(
-        {
-          customerId: customerId!,
-          brand: createAppointmentDto.vehicle.brand,
-          model: createAppointmentDto.vehicle.model,
-          year: createAppointmentDto.vehicle.year,
-          serialNumberLastFour: serialNumberLastFour,
-          color: (createAppointmentDto.vehicle as any).color,
-        },
-        branchId,
-      );
-    }
 
     const initialStatus = createAppointmentDto.status || 'pending';
     const appointment = new this.appointmentModel({
@@ -321,6 +301,13 @@ export class AppointmentsService {
       branch: branchId,
       customer: customerId as any,
       scheduledAt: scheduledAtDate,
+      vehicle: {
+        brand: vehicle.brand,
+        model: vehicle.model,
+        year: vehicle.year,
+        serialNumberLastFour: vehicle.serialNumberLastFour || '',
+        color: vehicle.color || (createAppointmentDto.vehicle as any)?.color || '',
+      },
     });
 
     const savedAppt = await appointment.save();
@@ -382,6 +369,8 @@ export class AppointmentsService {
         { customerName: regex },
         { customerPhone: { $regex: filters.search.trim(), $options: 'i' } },
         { serviceRequested: regex },
+        { 'vehicle.brand': regex },
+        { 'vehicle.model': regex },
         {
           'vehicle.serialNumberLastFour': {
             $regex: filters.search.trim(),
@@ -524,6 +513,36 @@ export class AppointmentsService {
     ) {
       await this.maintenanceService.handleAppointmentCancelled(id, branchId);
     }
+
+    return saved.populate('customer');
+  }
+
+  async cancel(
+    id: string,
+    branchId: string,
+    notes?: string,
+    userId?: string,
+  ): Promise<AppointmentDocument> {
+    const appointment = await this.findById(id, branchId);
+    appointment.status = 'cancelled';
+    if (notes) {
+      appointment.notes = appointment.notes
+        ? `${appointment.notes} | ${notes}`
+        : notes;
+    }
+    const saved = await appointment.save();
+    await this.maintenanceService.handleAppointmentCancelled(id, branchId);
+
+    await this.auditLogsService.logAction({
+      action: 'CANCEL_APPOINTMENT',
+      module: 'appointments',
+      description: `Cita cancelada${notes ? `. Notas: ${notes}` : ''}`,
+      branchId,
+      performedBy: userId,
+      entityId: id,
+      entityType: 'Appointment',
+      metadata: { notes },
+    });
 
     return saved.populate('customer');
   }
@@ -774,6 +793,7 @@ export class AppointmentsService {
     id: string,
     branchId: string,
     message: string,
+    userId?: string,
   ): Promise<AppointmentDocument> {
     const appointment = await this.findById(id, branchId);
     appointment.status = 'rejected';
@@ -781,6 +801,17 @@ export class AppointmentsService {
 
     // Enviar mensaje de WhatsApp
     await this.whatsAppService.sendMessage(appointment.customerPhone, message);
+
+    await this.auditLogsService.logAction({
+      action: 'REJECT_APPOINTMENT',
+      module: 'appointments',
+      description: `Cita rechazada. Razón: ${message}`,
+      branchId,
+      performedBy: userId,
+      entityId: id,
+      entityType: 'Appointment',
+      metadata: { reason: message },
+    });
 
     return saved.populate('customer');
   }
@@ -835,25 +866,29 @@ export class AppointmentsService {
 
     // If no maintenance existed, auto-create one
     if (!maintenance) {
-      const serialNumberLastFour = appointment.vehicle.serialNumberLastFour
+      const serialNumberLastFour = (appointment.vehicle?.serialNumberLastFour || '')
         .toUpperCase()
         .trim();
-      let vehicle = await this.vehiclesService
-        .findBySerialNumberLastFour(serialNumberLastFour, branchId)
-        .catch(() => null);
+      let vehicle: any = null;
+      if (serialNumberLastFour) {
+        vehicle = await this.vehiclesService
+          .findBySerialNumberLastFour(serialNumberLastFour, branchId)
+          .catch(() => null);
+      }
       const customerId =
         (appointment.customer as any)?._id?.toString() ||
         (appointment.customer as any)?.toString();
 
       if (!vehicle && customerId) {
         vehicle = await this.vehiclesService
-          .create(
+          .findOrCreateByClosestMatch(
+            customerId,
             {
-              customerId,
               brand: appointment.vehicle.brand,
               model: appointment.vehicle.model,
               year: appointment.vehicle.year,
-              serialNumberLastFour,
+              serialNumberLastFour: appointment.vehicle.serialNumberLastFour,
+              color: (appointment.vehicle as any)?.color,
             },
             branchId,
           )

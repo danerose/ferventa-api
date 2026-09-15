@@ -13,13 +13,19 @@ import {
   StockMovement,
   StockMovementDocument,
 } from './schemas/stock-movement.schema';
+import {
+  StockReception,
+  StockReceptionDocument,
+} from './schemas/stock-reception.schema';
 import { CreateBrandDto } from './dto/create-brand.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateProviderDto } from './dto/create-provider.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateStockMovementDto } from './dto/create-stock-movement.dto';
+import { CreateStockReceptionDto } from './dto/create-stock-reception.dto';
 import { PaginatedResult } from '../../common/dto/pagination.dto';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { I18nContext } from 'nestjs-i18n';
 import { buildFuzzyRegex } from '../../common/utils/search.util';
 
@@ -32,6 +38,9 @@ export class InventoryService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(StockMovement.name)
     private movementModel: Model<StockMovementDocument>,
+    @InjectModel(StockReception.name)
+    private receptionModel: Model<StockReceptionDocument>,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   // --- BRAND CRUD ---
@@ -722,9 +731,305 @@ export class InventoryService {
     }
 
     await this.movementModel.deleteOne({ _id: id });
+
+    await this.auditLogsService.logAction({
+      action: 'DELETE_STOCK_MOVEMENT',
+      module: 'inventory',
+      description: `Movimiento de stock eliminado y revertido (ID ${id})`,
+      branchId,
+      entityId: id,
+      entityType: 'StockMovement',
+    });
+
     return {
       success: true,
       message: 'Movimiento eliminado y stock revertido correctamente',
+    };
+  }
+
+  // --- STOCK RECEPTIONS & BOX MANAGEMENT ---
+
+  async createReception(
+    dto: CreateStockReceptionDto,
+    userId: string,
+    branchId: string,
+  ): Promise<StockReceptionDocument> {
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException(
+        'La recepción debe contener al menos un producto',
+      );
+    }
+
+    const itemsWithDetails: any[] = [];
+    let counter = 1;
+
+    for (const item of dto.items) {
+      const product = await this.findProductById(item.productId, branchId);
+      const timestampPart = Date.now().toString(36).toUpperCase();
+      const randomSuffix = Math.floor(Math.random() * 1000)
+        .toString()
+        .padStart(3, '0');
+      const boxCode = `BOX-${timestampPart}-${counter++}-${randomSuffix}`;
+
+      itemsWithDetails.push({
+        product: product._id,
+        sku: product.sku,
+        name: product.name,
+        quantity: item.quantity,
+        costPrice: item.costPrice,
+        sellingPrice:
+          item.sellingPrice !== undefined && item.sellingPrice > 0
+            ? item.sellingPrice
+            : product.sellingPrice,
+        boxCode,
+        isBoxSealed: true,
+        openedAt: null,
+        openedBy: null,
+      });
+    }
+
+    const reception = new this.receptionModel({
+      branch: branchId,
+      provider: dto.providerId ? (dto.providerId as any) : null,
+      receivedBy: userId as any,
+      status: 'draft',
+      items: itemsWithDetails,
+      invoiceOrFolio: dto.invoiceOrFolio || '',
+      notes: dto.notes || '',
+    });
+
+    return (await reception.save()).populate([
+      { path: 'provider', select: 'name providerCode' },
+      { path: 'receivedBy', select: 'name email' },
+      { path: 'items.product', populate: ['brand', 'category'] },
+    ]);
+  }
+
+  async findAllReceptions(
+    branchId: string,
+    status?: string,
+  ): Promise<StockReceptionDocument[]> {
+    const query: any = { branch: branchId };
+    if (status) {
+      query.status = status;
+    }
+
+    return this.receptionModel
+      .find(query)
+      .populate('provider', 'name providerCode')
+      .populate('receivedBy', 'name email')
+      .populate('approvedBy', 'name email')
+      .populate({ path: 'items.product', populate: ['brand', 'category'] })
+      .populate('items.openedBy', 'name email')
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
+  async findReceptionById(
+    id: string,
+    branchId: string,
+  ): Promise<StockReceptionDocument> {
+    const reception = await this.receptionModel
+      .findOne({ _id: id, branch: branchId })
+      .populate('provider', 'name providerCode')
+      .populate('receivedBy', 'name email')
+      .populate('approvedBy', 'name email')
+      .populate({ path: 'items.product', populate: ['brand', 'category'] })
+      .populate('items.openedBy', 'name email')
+      .exec();
+
+    if (!reception) {
+      throw new NotFoundException('Recepción de inventario no encontrada');
+    }
+    return reception;
+  }
+
+  async approveReception(
+    id: string,
+    userId: string,
+    branchId: string,
+  ): Promise<StockReceptionDocument> {
+    const reception = await this.findReceptionById(id, branchId);
+    if (reception.status !== 'draft') {
+      throw new BadRequestException(
+        `Solo se pueden aprobar recepciones en estado draft. Estado actual: ${reception.status}`,
+      );
+    }
+
+    reception.status = 'approved';
+    reception.approvedBy = userId as any;
+    reception.approvedAt = new Date();
+
+    const saved = await reception.save();
+
+    await this.auditLogsService.logAction({
+      action: 'APPROVE_RECEPTION',
+      module: 'inventory',
+      description: `Recepción aprobada. Cajas generadas: ${saved.items.length}`,
+      branchId,
+      performedBy: userId,
+      entityId: (saved._id as any).toString(),
+      entityType: 'StockReception',
+      metadata: { folio: saved.invoiceOrFolio, itemsCount: saved.items.length },
+    });
+
+    return saved.populate([
+      { path: 'provider', select: 'name providerCode' },
+      { path: 'receivedBy', select: 'name email' },
+      { path: 'approvedBy', select: 'name email' },
+      { path: 'items.product', populate: ['brand', 'category'] },
+    ]);
+  }
+
+  async rejectReception(
+    id: string,
+    userId: string,
+    branchId: string,
+    reason?: string,
+  ): Promise<StockReceptionDocument> {
+    const reception = await this.findReceptionById(id, branchId);
+    if (reception.status !== 'draft') {
+      throw new BadRequestException(
+        `Solo se pueden rechazar recepciones en estado draft. Estado actual: ${reception.status}`,
+      );
+    }
+
+    reception.status = 'rejected';
+    reception.approvedBy = userId as any;
+    reception.rejectionReason = reason || 'Rechazado por el administrador';
+
+    const saved = await reception.save();
+
+    await this.auditLogsService.logAction({
+      action: 'REJECT_RECEPTION',
+      module: 'inventory',
+      description: `Recepción rechazada. Razón: ${saved.rejectionReason}`,
+      branchId,
+      performedBy: userId,
+      entityId: (saved._id as any).toString(),
+      entityType: 'StockReception',
+      metadata: { reason: saved.rejectionReason },
+    });
+
+    return saved.populate([
+      { path: 'provider', select: 'name providerCode' },
+      { path: 'receivedBy', select: 'name email' },
+      { path: 'approvedBy', select: 'name email' },
+      { path: 'items.product', populate: ['brand', 'category'] },
+    ]);
+  }
+
+  async openBox(boxCode: string, userId: string, branchId: string) {
+    const cleanCode = (boxCode || '').trim();
+    if (!cleanCode) {
+      throw new BadRequestException('Se requiere el código de la caja');
+    }
+
+    const reception = await this.receptionModel
+      .findOne({
+        branch: branchId,
+        'items.boxCode': cleanCode,
+      })
+      .populate('provider', 'name providerCode')
+      .exec();
+
+    if (!reception) {
+      throw new NotFoundException(
+        `No se encontró ninguna caja con el código: ${cleanCode}`,
+      );
+    }
+
+    if (reception.status !== 'approved') {
+      throw new BadRequestException(
+        `Esta caja pertenece a una recepción en estado "${reception.status}". Primero debe ser aprobada por el administrador.`,
+      );
+    }
+
+    const item = reception.items.find((i) => i.boxCode === cleanCode);
+    if (!item) {
+      throw new NotFoundException(
+        `Ítem no encontrado para el código ${cleanCode}`,
+      );
+    }
+
+    if (!item.isBoxSealed) {
+      throw new BadRequestException(
+        `Esta caja ya fue abierta anteriormente el ${item.openedAt?.toLocaleString() || ''}`,
+      );
+    }
+
+    const productId = (item.product as any)?._id || (item.product as any);
+    const product = await this.productModel.findOne({
+      _id: productId,
+      branch: branchId,
+    });
+    if (!product) {
+      throw new NotFoundException('Producto asociado a la caja no encontrado');
+    }
+
+    // 1. Aumentar stock de mostrador
+    const oldStock = product.stock;
+    product.stock += item.quantity;
+
+    // 2. Unificar precio de venta en mostrador (si el lote trae nuevo precio, todas las piezas en mostrador adoptan el nuevo precio)
+    const oldSellingPrice = product.sellingPrice;
+    if (item.sellingPrice && item.sellingPrice > 0) {
+      product.sellingPrice = item.sellingPrice;
+    }
+    product.costPrice = item.costPrice;
+    await product.save();
+
+    // 3. Registrar movimiento de stock formal en Kardex
+    const movement = new this.movementModel({
+      product: product._id,
+      branch: branchId,
+      type: 'in',
+      quantity: item.quantity,
+      reason: `Apertura de caja/lote #${item.boxCode} (Precio venta actualizado de $${oldSellingPrice} a $${product.sellingPrice})`,
+      performedBy: userId as any,
+      provider: reception.provider
+        ? (reception.provider as any)._id || reception.provider
+        : null,
+      balanceAfter: product.stock,
+    });
+    await movement.save();
+
+    // 4. Marcar caja como abierta
+    item.isBoxSealed = false;
+    item.openedAt = new Date();
+    item.openedBy = userId as any;
+    await reception.save();
+
+    await this.auditLogsService.logAction({
+      action: 'OPEN_BOX',
+      module: 'inventory',
+      description: `Caja ${item.boxCode} abierta. ${item.quantity} piezas ingresadas al stock. Precio venta unificado: $${product.sellingPrice}`,
+      branchId,
+      performedBy: userId,
+      entityId: (product._id as any).toString(),
+      entityType: 'Product',
+      metadata: {
+        boxCode: item.boxCode,
+        sku: product.sku,
+        quantity: item.quantity,
+        sellingPrice: product.sellingPrice,
+        receptionId: (reception._id as any).toString(),
+      },
+    });
+
+    return {
+      success: true,
+      message: `Caja ${item.boxCode} abierta exitosamente. Se agregaron ${item.quantity} piezas al stock (Total: ${product.stock}) y el precio se actualizó a $${product.sellingPrice}`,
+      boxCode: item.boxCode,
+      product: {
+        _id: product._id,
+        name: product.name,
+        sku: product.sku,
+        previousStock: oldStock,
+        currentStock: product.stock,
+        previousSellingPrice: oldSellingPrice,
+        currentSellingPrice: product.sellingPrice,
+      },
     };
   }
 }

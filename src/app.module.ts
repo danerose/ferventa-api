@@ -22,6 +22,7 @@ import { MigrationModule } from './scripts/migration/migration.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { ServicesModule } from './modules/services/services.module';
 import { OrdersModule } from './modules/orders/orders.module';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { OrdersModule } from './modules/orders/orders.module';
     AttendanceModule,
     ServicesModule,
     OrdersModule,
+    AuditLogsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

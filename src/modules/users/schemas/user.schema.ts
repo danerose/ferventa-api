@@ -57,6 +57,9 @@ export class User {
 
   @Prop({ type: Date, default: null })
   lastLoginAt: Date | null;
+
+  @Prop({ type: String, default: null, trim: true })
+  accessPin?: string | null;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

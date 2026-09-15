@@ -10,6 +10,10 @@ import {
   StockMovement,
   StockMovementSchema,
 } from './schemas/stock-movement.schema';
+import {
+  StockReception,
+  StockReceptionSchema,
+} from './schemas/stock-reception.schema';
 
 @Module({
   imports: [
@@ -19,6 +23,7 @@ import {
       { name: Provider.name, schema: ProviderSchema },
       { name: Product.name, schema: ProductSchema },
       { name: StockMovement.name, schema: StockMovementSchema },
+      { name: StockReception.name, schema: StockReceptionSchema },
     ]),
   ],
   controllers: [InventoryController],
