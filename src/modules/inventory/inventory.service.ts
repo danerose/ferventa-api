@@ -104,6 +104,43 @@ export class InventoryService {
     return this.findAllBrands(branchId, search, page, limit);
   }
 
+  async updateBrand(
+    id: string,
+    branchId: string,
+    dto: CreateBrandDto,
+    userId?: string,
+  ): Promise<Brand> {
+    const brand = await this.brandModel.findOne({
+      _id: id,
+      branch: branchId,
+    });
+    if (!brand) {
+      const i18n = I18nContext.current();
+      throw new NotFoundException(
+        i18n ? i18n.t('common.errors.brandNotFound') : 'Marca no encontrada',
+      );
+    }
+    const newName = dto.name.trim();
+    if (newName !== brand.name) {
+      const existing = await this.brandModel.findOne({
+        name: newName,
+        branch: branchId,
+        _id: { $ne: id },
+      });
+      if (existing) {
+        const i18n = I18nContext.current();
+        throw new BadRequestException(
+          i18n
+            ? i18n.t('common.errors.brandRegistered')
+            : 'Esta marca ya está registrada',
+        );
+      }
+      brand.name = newName;
+      await brand.save();
+    }
+    return brand;
+  }
+
   async deleteBrand(id: string, branchId: string): Promise<void> {
     // Check if any product is using this brand
     const productsUsing = await this.productModel.countDocuments({
@@ -189,6 +226,45 @@ export class InventoryService {
     limit = 10,
   ): Promise<PaginatedResult<Category>> {
     return this.findAllCategories(branchId, search, page, limit);
+  }
+
+  async updateCategory(
+    id: string,
+    branchId: string,
+    dto: CreateCategoryDto,
+    userId?: string,
+  ): Promise<Category> {
+    const category = await this.categoryModel.findOne({
+      _id: id,
+      branch: branchId,
+    });
+    if (!category) {
+      const i18n = I18nContext.current();
+      throw new NotFoundException(
+        i18n
+          ? i18n.t('common.errors.categoryNotFound')
+          : 'Categoría no encontrada',
+      );
+    }
+    const newName = dto.name.trim();
+    if (newName !== category.name) {
+      const existing = await this.categoryModel.findOne({
+        name: newName,
+        branch: branchId,
+        _id: { $ne: id },
+      });
+      if (existing) {
+        const i18n = I18nContext.current();
+        throw new BadRequestException(
+          i18n
+            ? i18n.t('common.errors.categoryRegistered')
+            : 'Esta categoría ya está registrada',
+        );
+      }
+      category.name = newName;
+      await category.save();
+    }
+    return category;
   }
 
   async deleteCategory(id: string, branchId: string): Promise<void> {
@@ -535,10 +611,10 @@ export class InventoryService {
     };
   }
 
-  async findProductById(
+  async findProductDocumentById(
     id: string,
     branchId: string,
-  ): Promise<any> {
+  ): Promise<ProductDocument> {
     const product = await this.productModel
       .findOne({ _id: id, branch: branchId })
       .populate(['brand', 'category'])
@@ -551,7 +627,14 @@ export class InventoryService {
           : 'Producto no encontrado',
       );
     }
+    return product;
+  }
 
+  async findProductById(
+    id: string,
+    branchId: string,
+  ): Promise<any> {
+    const product = await this.findProductDocumentById(id, branchId);
     const statsMap = await this.getSealedBoxStats(branchId, [
       (product._id as any).toString(),
     ]);
@@ -583,8 +666,8 @@ export class InventoryService {
     branchId: string,
     updateProductDto: UpdateProductDto,
     userId?: string,
-  ): Promise<ProductDocument> {
-    const product = await this.findProductById(id, branchId);
+  ): Promise<any> {
+    const product = await this.findProductDocumentById(id, branchId);
 
     if (updateProductDto.sku) {
       const newSku = updateProductDto.sku.toUpperCase();
@@ -677,11 +760,28 @@ export class InventoryService {
       product.isActive = updateProductDto.isActive;
 
     const saved = await product.save();
+
+    await this.auditLogsService.logAction({
+      action: 'UPDATE_PRODUCT',
+      module: 'inventory',
+      description: `Producto actualizado: ${saved.name} (SKU: ${saved.sku})`,
+      branchId,
+      performedBy: userId,
+      entityId: (saved._id as any).toString(),
+      entityType: 'Product',
+      metadata: {
+        sku: saved.sku,
+        name: saved.name,
+        stock: saved.stock,
+        sellingPrice: saved.sellingPrice,
+      },
+    });
+
     return saved.populate(['brand', 'category']);
   }
 
   async deleteProduct(id: string, branchId: string): Promise<void> {
-    const product = await this.findProductById(id, branchId);
+    const product = await this.findProductDocumentById(id, branchId);
     product.isActive = false;
     await product.save();
   }

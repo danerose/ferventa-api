@@ -48,8 +48,9 @@ export class VehiclesService {
     },
     branchId: string,
   ): Promise<VehicleDocument> {
-    // Verify customer exists and belongs to the same branch
-    await this.customersService.findById(customerId, branchId);
+    // Verify customer exists (supports fallback across branches)
+    const customer = await this.customersService.findById(customerId, branchId);
+    const vehicleBranch = branchId || (customer as any).branch?.toString() || '';
 
     const formattedBrand = (dto.brand || '').trim();
     const formattedModel = (dto.model || '').trim();
@@ -62,11 +63,10 @@ export class VehiclesService {
       .trim();
     const formattedColor = (dto.color || '').trim();
 
-    // Check if customer already has vehicles in this branch
+    // Check all vehicles registered for this customer
     const customerVehicles = await this.vehicleModel
       .find({
         customer: customerId as any,
-        branch: branchId,
       })
       .populate('customer')
       .exec();
@@ -123,7 +123,7 @@ export class VehiclesService {
     // No close match found or no vehicles registered: create a new vehicle for this customer
     const created = new this.vehicleModel({
       customer: customerId as any,
-      branch: branchId,
+      branch: vehicleBranch,
       brand: formattedBrand,
       model: formattedModel,
       ...(formattedYear !== undefined ? { year: formattedYear } : {}),
@@ -149,34 +149,53 @@ export class VehiclesService {
   }
 
   async findAll(
-    branchId: string,
-    filters: { customerId?: string; search?: string },
+    branchId?: string,
+    filters?: { customerId?: string; search?: string },
   ): Promise<VehicleDocument[]> {
-    const query: any = { branch: branchId };
-    if (filters.customerId) {
+    const query: any = {};
+    if (branchId && !filters?.customerId) {
+      query.branch = branchId;
+    }
+    if (filters?.customerId) {
       query.customer = filters.customerId;
     }
-    if (filters.search) {
-      const regex = buildFuzzyRegex(filters.search);
+    if (filters?.search) {
+      const trimmed = filters.search.trim();
+      const regex = buildFuzzyRegex(trimmed);
       query.$or = [
         { brand: regex },
         { model: regex },
+        { color: regex },
         {
           serialNumberLastFour: {
-            $regex: filters.search.trim(),
+            $regex: trimmed,
             $options: 'i',
           },
         },
       ];
     }
-    return this.vehicleModel.find(query).populate('customer').exec();
+    let vehicles = await this.vehicleModel.find(query).populate('customer').exec();
+    if (vehicles.length === 0 && branchId && (filters?.customerId || filters?.search)) {
+      const fallbackQuery = { ...query };
+      delete fallbackQuery.branch;
+      vehicles = await this.vehicleModel.find(fallbackQuery).populate('customer').exec();
+    }
+    return vehicles;
   }
 
-  async findById(id: string, branchId: string): Promise<VehicleDocument> {
-    const vehicle = await this.vehicleModel
-      .findOne({ _id: id, branch: branchId })
+  async findById(id: string, branchId?: string): Promise<VehicleDocument> {
+    const query: any = { _id: id };
+    if (branchId) query.branch = branchId;
+    let vehicle = await this.vehicleModel
+      .findOne(query)
       .populate('customer')
       .exec();
+    if (!vehicle && branchId) {
+      vehicle = await this.vehicleModel
+        .findOne({ _id: id })
+        .populate('customer')
+        .exec();
+    }
     if (!vehicle) {
       const i18n = I18nContext.current();
       throw new NotFoundException(
@@ -190,15 +209,24 @@ export class VehiclesService {
 
   async findBySerialNumberLastFour(
     serialNumberLastFour: string,
-    branchId: string,
+    branchId?: string,
   ): Promise<VehicleDocument> {
-    const vehicle = await this.vehicleModel
-      .findOne({
-        serialNumberLastFour: serialNumberLastFour.toUpperCase().trim(),
-        branch: branchId,
-      })
+    const query: any = {
+      serialNumberLastFour: serialNumberLastFour.toUpperCase().trim(),
+    };
+    if (branchId) query.branch = branchId;
+    let vehicle = await this.vehicleModel
+      .findOne(query)
       .populate('customer')
       .exec();
+    if (!vehicle && branchId) {
+      vehicle = await this.vehicleModel
+        .findOne({
+          serialNumberLastFour: serialNumberLastFour.toUpperCase().trim(),
+        })
+        .populate('customer')
+        .exec();
+    }
     if (!vehicle) {
       const i18n = I18nContext.current();
       throw new NotFoundException(
@@ -215,7 +243,7 @@ export class VehiclesService {
     serialNumberLastFour: string,
     branchId: string,
   ): Promise<VehicleDocument | null> {
-    return this.vehicleModel
+    let vehicle = await this.vehicleModel
       .findOne({
         customer: customerId as any,
         serialNumberLastFour: serialNumberLastFour.toUpperCase().trim(),
@@ -223,6 +251,16 @@ export class VehiclesService {
       })
       .populate('customer')
       .exec();
+    if (!vehicle) {
+      vehicle = await this.vehicleModel
+        .findOne({
+          customer: customerId as any,
+          serialNumberLastFour: serialNumberLastFour.toUpperCase().trim(),
+        })
+        .populate('customer')
+        .exec();
+    }
+    return vehicle;
   }
 
   async update(

@@ -112,6 +112,18 @@ export class InventoryController {
     );
   }
 
+  @Patch('brands/:id')
+  @Roles('admin', 'warehouse')
+  @ApiOperation({ summary: 'Actualizar una marca (Admin / Warehouse)' })
+  updateBrand(
+    @BranchId() branchId: string,
+    @Param('id') id: string,
+    @Body() createBrandDto: CreateBrandDto,
+    @CurrentUser('_id') userId: string,
+  ) {
+    return this.inventoryService.updateBrand(id, branchId, createBrandDto, userId);
+  }
+
   @Delete('brands/:id')
   @Roles('admin')
   @ApiOperation({ summary: 'Eliminar una marca (Solo Admin)' })
@@ -185,6 +197,23 @@ export class InventoryController {
       searchTerm,
       query?.page,
       query?.limit,
+    );
+  }
+
+  @Patch('categories/:id')
+  @Roles('admin', 'warehouse')
+  @ApiOperation({ summary: 'Actualizar una categoría (Admin / Warehouse)' })
+  updateCategory(
+    @BranchId() branchId: string,
+    @Param('id') id: string,
+    @Body() createCategoryDto: CreateCategoryDto,
+    @CurrentUser('_id') userId: string,
+  ) {
+    return this.inventoryService.updateCategory(
+      id,
+      branchId,
+      createCategoryDto,
+      userId,
     );
   }
 
@@ -378,8 +407,8 @@ export class InventoryController {
   }
 
   @Patch('products/:id')
-  @Roles('admin')
-  @ApiOperation({ summary: 'Actualizar un producto (Solo Admin)' })
+  @Roles('admin', 'warehouse')
+  @ApiOperation({ summary: 'Actualizar un producto (Admin / Warehouse)' })
   updateProduct(
     @BranchId() branchId: string,
     @Param('id') id: string,

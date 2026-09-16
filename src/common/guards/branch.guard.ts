@@ -20,11 +20,16 @@ export class BranchGuard implements CanActivate {
     }
 
     // Check if user has access to this branch
-    const hasAccess = user.branches && user.branches.includes(branchId);
-    
-    // If admin has a wildcard permission or explicit access, allow it.
-    // For now, we assume if you are admin with '*' you have access to all branches.
-    const isAdmin = user.role && user.role.permissions && user.role.permissions.includes('*');
+    const userBranchIds: string[] = (user.branches || []).map((b: any) =>
+      b?._id ? b._id.toString() : b?.toString ? b.toString() : String(b),
+    );
+    const hasAccess = userBranchIds.includes(branchId.toString());
+
+    const roleName = typeof user.role === 'string' ? user.role : user.role?.name;
+    const permissions: string[] = user.role?.permissions || [];
+    const isAdmin =
+      (roleName && roleName.toLowerCase() === 'admin') ||
+      permissions.includes('*');
 
     if (!hasAccess && !isAdmin) {
       throw new ForbiddenException(

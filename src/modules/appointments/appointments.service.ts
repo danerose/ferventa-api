@@ -252,47 +252,145 @@ export class AppointmentsService {
   async create(
     createAppointmentDto: CreateAppointmentDto,
     branchId: string,
+    userId?: string,
   ): Promise<AppointmentDocument> {
     const scheduledAtDate = new Date(createAppointmentDto.scheduledAt);
     const duration = createAppointmentDto.duration || 15;
     await this.validateBookingTime(scheduledAtDate, duration, branchId);
 
     let customerId = createAppointmentDto.customerId;
-    const phone = createAppointmentDto.customerPhone.trim();
+    const phone = (createAppointmentDto.customerPhone || '').trim();
 
     let customer: any = null;
     if (customerId) {
       customer = await this.customersService.findById(customerId, branchId);
     } else {
-      try {
-        customer = await this.customersService.findByPhone(phone, branchId);
-        customerId = customer._id.toString();
-      } catch (e) {
-        if (!(e instanceof NotFoundException)) throw e;
-        customer = await this.customersService.create(
-          {
-            name: createAppointmentDto.customerName,
-            email: createAppointmentDto.customerEmail,
-            phone: phone,
-            whatsappId: createAppointmentDto.whatsappId,
-          },
-          branchId,
-        );
-        customerId = customer._id.toString();
+      // 1. Try finding customer by phone
+      if (phone) {
+        try {
+          customer = await this.customersService.findByPhone(phone, branchId);
+          customerId = customer._id.toString();
+        } catch (e) {
+          customer = null;
+        }
+      }
+
+      // 2. Try finding customer by email if not found yet
+      if (!customer && createAppointmentDto.customerEmail) {
+        const email = createAppointmentDto.customerEmail.toLowerCase().trim();
+        const found = await this.customersService.findAll(branchId);
+        customer = found.find((c: any) => c.email === email) || null;
+        if (customer) {
+          customerId = customer._id.toString();
+        }
+      }
+
+      // 3. Create customer if still not found
+      if (!customer) {
+        try {
+          customer = await this.customersService.create(
+            {
+              name: createAppointmentDto.customerName,
+              email: createAppointmentDto.customerEmail,
+              phone: phone,
+              whatsappId: createAppointmentDto.whatsappId,
+            },
+            branchId,
+          );
+          customerId = customer._id.toString();
+        } catch (e) {
+          // If creation fails due to duplicate or phone registered, gracefully locate existing customer
+          try {
+            customer = await this.customersService.findByPhone(phone);
+            customerId = customer._id.toString();
+          } catch {
+            const allCustomers = await this.customersService.findAll(branchId);
+            customer =
+              allCustomers.find(
+                (c: any) =>
+                  c.phone === phone ||
+                  (createAppointmentDto.customerEmail &&
+                    c.email ===
+                      createAppointmentDto.customerEmail.toLowerCase().trim()),
+              ) || null;
+
+            if (customer) {
+              customerId = customer._id.toString();
+            } else {
+              throw e;
+            }
+          }
+        }
       }
     }
 
-    const vehicle = await this.vehiclesService.findOrCreateByClosestMatch(
-      customerId!,
-      {
-        brand: createAppointmentDto.vehicle.brand,
-        model: createAppointmentDto.vehicle.model,
-        year: createAppointmentDto.vehicle.year,
-        serialNumberLastFour: createAppointmentDto.vehicle.serialNumberLastFour,
-        color: (createAppointmentDto.vehicle as any).color,
-      },
-      branchId,
-    );
+    // Resolve vehicle
+    const incomingVehicleId =
+      createAppointmentDto.vehicleId ||
+      createAppointmentDto.vehicle?.id ||
+      createAppointmentDto.vehicle?._id ||
+      createAppointmentDto.vehicle?.vehicleId;
+
+    let vehicle: any = null;
+    if (incomingVehicleId) {
+      try {
+        vehicle = await this.vehiclesService.findById(
+          incomingVehicleId,
+          branchId,
+        );
+        // Enrich vehicle if fields were modified in appointment form
+        if (createAppointmentDto.vehicle) {
+          const v = createAppointmentDto.vehicle;
+          let changed = false;
+          if (v.brand && v.brand.trim() && v.brand.trim() !== vehicle.brand) {
+            vehicle.brand = v.brand.trim();
+            changed = true;
+          }
+          if (v.model && v.model.trim() && v.model.trim() !== vehicle.model) {
+            vehicle.model = v.model.trim();
+            changed = true;
+          }
+          if (v.year !== undefined && Number(v.year) !== vehicle.year) {
+            vehicle.year = Number(v.year);
+            changed = true;
+          }
+          if (v.color && v.color.trim() !== vehicle.color) {
+            vehicle.color = v.color.trim();
+            changed = true;
+          }
+          if (
+            v.serialNumberLastFour &&
+            v.serialNumberLastFour.toUpperCase().trim() !==
+              vehicle.serialNumberLastFour
+          ) {
+            vehicle.serialNumberLastFour = v.serialNumberLastFour
+              .toUpperCase()
+              .trim();
+            changed = true;
+          }
+          if (changed) {
+            await vehicle.save();
+          }
+        }
+      } catch (err) {
+        vehicle = null;
+      }
+    }
+
+    if (!vehicle) {
+      vehicle = await this.vehiclesService.findOrCreateByClosestMatch(
+        customerId!,
+        {
+          brand: createAppointmentDto.vehicle?.brand || 'Vehículo',
+          model: createAppointmentDto.vehicle?.model || 'General',
+          year: createAppointmentDto.vehicle?.year,
+          serialNumberLastFour:
+            createAppointmentDto.vehicle?.serialNumberLastFour,
+          color: (createAppointmentDto.vehicle as any)?.color,
+        },
+        branchId,
+      );
+    }
 
     const initialStatus = createAppointmentDto.status || 'pending';
     const appointment = new this.appointmentModel({
@@ -306,7 +404,10 @@ export class AppointmentsService {
         model: vehicle.model,
         year: vehicle.year,
         serialNumberLastFour: vehicle.serialNumberLastFour || '',
-        color: vehicle.color || (createAppointmentDto.vehicle as any)?.color || '',
+        color:
+          vehicle.color ||
+          (createAppointmentDto.vehicle as any)?.color ||
+          '',
       },
     });
 
@@ -334,6 +435,23 @@ export class AppointmentsService {
       );
       // We do not throw to avoid crashing the appointment creation if maintenance DB logic fails
     }
+
+    await this.auditLogsService.logAction({
+      action: 'CREATE_APPOINTMENT',
+      module: 'appointments',
+      description: `Cita registrada para ${createAppointmentDto.customerName} - ${createAppointmentDto.serviceRequested}`,
+      branchId,
+      performedBy: userId,
+      entityId: (savedAppt._id as any).toString(),
+      entityType: 'Appointment',
+      metadata: {
+        scheduledAt: scheduledAtDate,
+        serviceRequested: createAppointmentDto.serviceRequested,
+        customerName: createAppointmentDto.customerName,
+        customerPhone: phone,
+        vehicle: `${vehicle.brand} ${vehicle.model}`,
+      },
+    });
 
     return savedAppt.populate('customer');
   }
@@ -438,6 +556,7 @@ export class AppointmentsService {
     id: string,
     branchId: string,
     updateAppointmentDto: UpdateAppointmentDto,
+    userId?: string,
   ): Promise<AppointmentDocument> {
     const appointment = await this.findById(id, branchId);
 
@@ -514,6 +633,21 @@ export class AppointmentsService {
       await this.maintenanceService.handleAppointmentCancelled(id, branchId);
     }
 
+    await this.auditLogsService.logAction({
+      action: 'UPDATE_APPOINTMENT',
+      module: 'appointments',
+      description: `Cita actualizada #${id}${updateAppointmentDto.status ? ` (Estado: ${updateAppointmentDto.status})` : ''}`,
+      branchId,
+      performedBy: userId,
+      entityId: id,
+      entityType: 'Appointment',
+      metadata: {
+        status: saved.status,
+        scheduledAt: saved.scheduledAt,
+        serviceRequested: saved.serviceRequested,
+      },
+    });
+
     return saved.populate('customer');
   }
 
@@ -547,7 +681,7 @@ export class AppointmentsService {
     return saved.populate('customer');
   }
 
-  async remove(id: string, branchId: string): Promise<void> {
+  async remove(id: string, branchId: string, userId?: string): Promise<void> {
     const res = await this.appointmentModel.findOneAndDelete({
       _id: id,
       branch: branchId,
@@ -561,6 +695,16 @@ export class AppointmentsService {
       );
     }
     await this.maintenanceService.handleAppointmentCancelled(id, branchId);
+
+    await this.auditLogsService.logAction({
+      action: 'DELETE_APPOINTMENT',
+      module: 'appointments',
+      description: `Cita eliminada #${id}`,
+      branchId,
+      performedBy: userId,
+      entityId: id,
+      entityType: 'Appointment',
+    });
   }
 
   // --- WORKSHOP SCHEDULE CONFIG ---
@@ -778,6 +922,7 @@ export class AppointmentsService {
     id: string,
     branchId: string,
     message: string,
+    userId?: string,
   ): Promise<AppointmentDocument> {
     const appointment = await this.findById(id, branchId);
     appointment.status = 'approved';
@@ -785,6 +930,17 @@ export class AppointmentsService {
 
     // Enviar mensaje de WhatsApp
     await this.whatsAppService.sendMessage(appointment.customerPhone, message);
+
+    await this.auditLogsService.logAction({
+      action: 'APPROVE_APPOINTMENT',
+      module: 'appointments',
+      description: `Cita aprobada #${id}`,
+      branchId,
+      performedBy: userId,
+      entityId: id,
+      entityType: 'Appointment',
+      metadata: { message },
+    });
 
     return saved.populate('customer');
   }
@@ -822,6 +978,7 @@ export class AppointmentsService {
     scheduledAtStr: string,
     duration: number,
     message: string,
+    userId?: string,
   ): Promise<AppointmentDocument> {
     const appointment = await this.findById(id, branchId);
     const newScheduledAt = new Date(scheduledAtStr);
@@ -838,6 +995,17 @@ export class AppointmentsService {
     // Enviar mensaje de WhatsApp
     await this.whatsAppService.sendMessage(appointment.customerPhone, message);
 
+    await this.auditLogsService.logAction({
+      action: 'RESCHEDULE_APPOINTMENT',
+      module: 'appointments',
+      description: `Cita reagendada #${id} para ${newScheduledAt.toISOString()}`,
+      branchId,
+      performedBy: userId,
+      entityId: id,
+      entityType: 'Appointment',
+      metadata: { scheduledAt: newScheduledAt, duration, message },
+    });
+
     return saved.populate('customer');
   }
 
@@ -850,6 +1018,7 @@ export class AppointmentsService {
     id: string,
     branchId: string,
     receptionNotes?: string,
+    userId?: string,
   ): Promise<{ appointment: AppointmentDocument; maintenance: any }> {
     const appointment = await this.findById(id, branchId);
     appointment.status = 'completed';
@@ -912,6 +1081,17 @@ export class AppointmentsService {
       }
     }
 
+    await this.auditLogsService.logAction({
+      action: 'CHECK_IN_APPOINTMENT',
+      module: 'appointments',
+      description: `Check-in de vehículo realizado para la cita #${id}`,
+      branchId,
+      performedBy: userId,
+      entityId: id,
+      entityType: 'Appointment',
+      metadata: { receptionNotes },
+    });
+
     return {
       appointment: await saved.populate('customer'),
       maintenance,
@@ -927,6 +1107,7 @@ export class AppointmentsService {
     id: string,
     branchId: string,
     notes?: string,
+    userId?: string,
   ): Promise<AppointmentDocument> {
     const appointment = await this.findById(id, branchId);
     appointment.status = 'no_show';
@@ -939,6 +1120,17 @@ export class AppointmentsService {
 
     // Eliminar cualquier orden en 'awaiting_appointment' vinculada
     await this.maintenanceService.handleAppointmentCancelled(id, branchId);
+
+    await this.auditLogsService.logAction({
+      action: 'NO_SHOW_APPOINTMENT',
+      module: 'appointments',
+      description: `Cita #${id} marcada como no asistió (no_show)`,
+      branchId,
+      performedBy: userId,
+      entityId: id,
+      entityType: 'Appointment',
+      metadata: { notes },
+    });
 
     return saved.populate('customer');
   }

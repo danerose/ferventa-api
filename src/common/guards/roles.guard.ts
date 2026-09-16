@@ -22,8 +22,23 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('No tienes permisos para realizar esta acción');
     }
 
-    // Extensible Check: Matches the role name (e.g., 'admin', 'seller')
-    const hasRole = requiredRoles.includes(user.role.name);
+    const roleName = typeof user.role === 'string' ? user.role : user.role?.name;
+    const permissions: string[] = user.role?.permissions || [];
+
+    // Admin or wildcard permissions have full access
+    if (
+      (roleName && roleName.toLowerCase() === 'admin') ||
+      permissions.includes('*')
+    ) {
+      return true;
+    }
+
+    // Extensible Check: Matches the role name (e.g., 'admin', 'seller', 'warehouse')
+    const hasRole =
+      roleName &&
+      requiredRoles.some(
+        (r) => r.toLowerCase() === roleName.toLowerCase(),
+      );
     
     if (!hasRole) {
       throw new ForbiddenException('No tienes permisos suficientes (rol requerido)');

@@ -237,8 +237,13 @@ export class AppointmentsController {
   create(
     @BranchId() branchId: string,
     @Body() createAppointmentDto: CreateAppointmentDto,
+    @CurrentUser('_id') userId: string,
   ) {
-    return this.appointmentsService.create(createAppointmentDto, branchId);
+    return this.appointmentsService.create(
+      createAppointmentDto,
+      branchId,
+      userId,
+    );
   }
 
   @Get()
@@ -299,8 +304,14 @@ export class AppointmentsController {
     @BranchId() branchId: string,
     @Param('id') id: string,
     @Body() updateAppointmentDto: UpdateAppointmentDto,
+    @CurrentUser('_id') userId: string,
   ) {
-    return this.appointmentsService.update(id, branchId, updateAppointmentDto);
+    return this.appointmentsService.update(
+      id,
+      branchId,
+      updateAppointmentDto,
+      userId,
+    );
   }
 
   @Patch(':id/approve')
@@ -314,11 +325,13 @@ export class AppointmentsController {
     @BranchId() branchId: string,
     @Param('id') id: string,
     @Body() approveAppointmentDto: ApproveAppointmentDto,
+    @CurrentUser('_id') userId: string,
   ) {
     return this.appointmentsService.approve(
       id,
       branchId,
       approveAppointmentDto.message,
+      userId,
     );
   }
 
@@ -355,6 +368,7 @@ export class AppointmentsController {
     @BranchId() branchId: string,
     @Param('id') id: string,
     @Body() rescheduleAppointmentDto: RescheduleAppointmentDto,
+    @CurrentUser('_id') userId: string,
   ) {
     const duration = rescheduleAppointmentDto.duration || 15;
     return this.appointmentsService.reschedule(
@@ -363,6 +377,7 @@ export class AppointmentsController {
       rescheduleAppointmentDto.scheduledAt,
       duration,
       rescheduleAppointmentDto.message,
+      userId,
     );
   }
 
@@ -378,8 +393,14 @@ export class AppointmentsController {
     @BranchId() branchId: string,
     @Param('id') id: string,
     @Body('receptionNotes') receptionNotes?: string,
+    @CurrentUser('_id') userId?: string,
   ) {
-    return this.appointmentsService.checkIn(id, branchId, receptionNotes);
+    return this.appointmentsService.checkIn(
+      id,
+      branchId,
+      receptionNotes,
+      userId,
+    );
   }
 
   @Patch(':id/cancel')
@@ -409,8 +430,9 @@ export class AppointmentsController {
     @BranchId() branchId: string,
     @Param('id') id: string,
     @Body('notes') notes?: string,
+    @CurrentUser('_id') userId?: string,
   ) {
-    return this.appointmentsService.markNoShow(id, branchId, notes);
+    return this.appointmentsService.markNoShow(id, branchId, notes, userId);
   }
 
   @Delete(':id')
@@ -418,7 +440,11 @@ export class AppointmentsController {
   @Roles('admin')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Eliminar una cita (Solo Admin)' })
-  remove(@BranchId() branchId: string, @Param('id') id: string) {
-    return this.appointmentsService.remove(id, branchId);
+  remove(
+    @BranchId() branchId: string,
+    @Param('id') id: string,
+    @CurrentUser('_id') userId?: string,
+  ) {
+    return this.appointmentsService.remove(id, branchId, userId);
   }
 }

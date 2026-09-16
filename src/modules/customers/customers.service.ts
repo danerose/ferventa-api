@@ -48,21 +48,44 @@ export class CustomersService {
     branchId: string,
     search?: string,
   ): Promise<CustomerDocument[]> {
-    const query: any = { branch: branchId };
-    if (search) {
-      const regex = buildFuzzyRegex(search);
-      query.$or = [
-        { name: regex },
-        { phone: { $regex: search.trim(), $options: 'i' } },
-      ];
+    const query: any = {};
+    if (branchId) {
+      query.branch = branchId;
     }
-    return this.customerModel.find(query).sort({ name: 1 }).exec();
+    if (search) {
+      const trimmed = search.trim();
+      const cleanDigits = trimmed.replace(/\D/g, '');
+      const regex = buildFuzzyRegex(trimmed);
+      const orConditions: any[] = [
+        { name: regex },
+        { phone: { $regex: trimmed, $options: 'i' } },
+        { email: { $regex: trimmed, $options: 'i' } },
+      ];
+      if (cleanDigits.length >= 7) {
+        const regexPattern = cleanDigits.slice(-10).split('').join('\\D*');
+        orConditions.push({ phone: { $regex: regexPattern, $options: 'i' } });
+      }
+      query.$or = orConditions;
+    }
+    let results = await this.customerModel.find(query).sort({ name: 1 }).exec();
+    if (results.length === 0 && search && branchId) {
+      const fallbackQuery: any = { ...query };
+      delete fallbackQuery.branch;
+      results = await this.customerModel
+        .find(fallbackQuery)
+        .sort({ name: 1 })
+        .exec();
+    }
+    return results;
   }
 
-  async findById(id: string, branchId: string): Promise<CustomerDocument> {
-    const customer = await this.customerModel
-      .findOne({ _id: id, branch: branchId })
-      .exec();
+  async findById(id: string, branchId?: string): Promise<CustomerDocument> {
+    const query: any = { _id: id };
+    if (branchId) query.branch = branchId;
+    let customer = await this.customerModel.findOne(query).exec();
+    if (!customer && branchId) {
+      customer = await this.customerModel.findOne({ _id: id }).exec();
+    }
     if (!customer) {
       const i18n = I18nContext.current();
       throw new NotFoundException(
@@ -76,11 +99,38 @@ export class CustomersService {
 
   async findByPhone(
     phone: string,
-    branchId: string,
+    branchId?: string,
   ): Promise<CustomerDocument> {
-    const customer = await this.customerModel
-      .findOne({ phone: phone.trim(), branch: branchId })
-      .exec();
+    const raw = (phone || '').trim();
+    const cleanDigits = raw.replace(/\D/g, '');
+    const last10 = cleanDigits.slice(-10);
+
+    const buildPhoneQuery = (bId?: string) => {
+      const q: any = {};
+      if (bId) q.branch = bId;
+
+      const conditions: any[] = [{ phone: raw }];
+      if (cleanDigits && cleanDigits !== raw) {
+        conditions.push({ phone: cleanDigits });
+      }
+      if (last10.length >= 7) {
+        const regexPattern = last10.split('').join('\\D*');
+        conditions.push({ phone: { $regex: regexPattern, $options: 'i' } });
+      }
+      q.$or = conditions;
+      return q;
+    };
+
+    let customer: CustomerDocument | null = null;
+    if (branchId) {
+      customer = await this.customerModel
+        .findOne(buildPhoneQuery(branchId))
+        .exec();
+    }
+    if (!customer) {
+      customer = await this.customerModel.findOne(buildPhoneQuery()).exec();
+    }
+
     if (!customer) {
       const i18n = I18nContext.current();
       throw new NotFoundException(

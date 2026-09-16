@@ -14,15 +14,42 @@ import { Type, Transform } from 'class-transformer';
 import { i18nValidationMessage } from 'nestjs-i18n';
 
 export class AppointmentVehicleDto {
-  @ApiProperty({ example: 'Ford', description: 'Marca del auto' })
+  @ApiPropertyOptional({
+    example: '60d5ec49c6d48227b409748b',
+    description: 'ID del vehículo existente si aplica',
+  })
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  @IsOptional()
   @IsString({ message: i18nValidationMessage('validation.isString') })
-  @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
-  brand: string;
+  id?: string;
 
-  @ApiProperty({ example: 'Fiesta', description: 'Modelo' })
+  @ApiPropertyOptional({
+    example: '60d5ec49c6d48227b409748b',
+    description: 'ID del vehículo existente si aplica (_id)',
+  })
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  @IsOptional()
   @IsString({ message: i18nValidationMessage('validation.isString') })
-  @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
-  model: string;
+  _id?: string;
+
+  @ApiPropertyOptional({
+    example: '60d5ec49c6d48227b409748b',
+    description: 'ID del vehículo existente si aplica (vehicleId)',
+  })
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  @IsOptional()
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  vehicleId?: string;
+
+  @ApiPropertyOptional({ example: 'Ford', description: 'Marca del auto' })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  brand?: string;
+
+  @ApiPropertyOptional({ example: 'Fiesta', description: 'Modelo' })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  model?: string;
 
   @ApiPropertyOptional({ example: 2015, description: 'Año' })
   @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })
@@ -79,6 +106,15 @@ export class CreateAppointmentDto {
   @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
   @IsOptional()
   customerId?: string;
+
+  @ApiPropertyOptional({
+    example: '60d5ec49c6d48227b409748c',
+    description: 'ID del vehículo si ya existe en sistema',
+  })
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  @IsOptional()
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  vehicleId?: string;
 
   @ApiProperty({
     type: AppointmentVehicleDto,

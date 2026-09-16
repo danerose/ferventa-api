@@ -426,7 +426,17 @@ export class MaintenanceService {
 
     const orders = await this.maintenanceModel
       .find(query)
-      .populate(['customer', 'vehicle', 'createdBy', 'appointment', 'sale'])
+      .populate([
+        'customer',
+        'vehicle',
+        'createdBy',
+        'appointment',
+        'itemsUsed.product',
+        'statusHistory.changedBy',
+        'diagnosticNotes.createdBy',
+        'notificationHistory.sentBy',
+        'sale',
+      ])
       .sort({ createdAt: -1 })
       .exec();
 

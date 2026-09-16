@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   Query,
+  Headers,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -26,14 +27,14 @@ import { BranchGuard } from '../../common/guards/branch.guard';
 import { BranchId } from '../../common/decorators/branch-id.decorator';
 
 @ApiTags('Vehículos')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
 @Controller('vehicles')
 export class VehiclesController {
   constructor(private readonly vehiclesService: VehiclesService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
   @Roles('admin', 'seller')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Registrar un vehículo (Admin / Seller)' })
   @ApiResponse({
     status: 201,
@@ -48,7 +49,7 @@ export class VehiclesController {
 
   @Get()
   @ApiOperation({
-    summary: 'Listar vehículos con filtros de búsqueda y cliente propietario',
+    summary: 'Listar vehículos con filtros de búsqueda y cliente propietario (Público / Staff)',
   })
   @ApiQuery({
     name: 'customerId',
@@ -61,34 +62,60 @@ export class VehiclesController {
     description:
       'Buscar por marca, modelo o últimos 4 dígitos del número de serie',
   })
+  @ApiQuery({
+    name: 'branchId',
+    required: false,
+    description: 'ID de la sucursal (opcional)',
+  })
   findAll(
-    @BranchId() branchId: string,
+    @Headers('x-branch-id') headerBranchId?: string,
+    @Query('branchId') queryBranchId?: string,
     @Query('customerId') customerId?: string,
     @Query('search') search?: string,
   ) {
+    const branchId = headerBranchId || queryBranchId || '';
     return this.vehiclesService.findAll(branchId, { customerId, search });
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Obtener detalle de un vehículo por ID' })
-  findOne(@BranchId() branchId: string, @Param('id') id: string) {
+  @ApiOperation({ summary: 'Obtener detalle de un vehículo por ID (Público / Staff)' })
+  @ApiQuery({
+    name: 'branchId',
+    required: false,
+    description: 'ID de la sucursal (opcional)',
+  })
+  findOne(
+    @Headers('x-branch-id') headerBranchId: string,
+    @Param('id') id: string,
+    @Query('branchId') queryBranchId?: string,
+  ) {
+    const branchId = headerBranchId || queryBranchId || '';
     return this.vehiclesService.findById(id, branchId);
   }
 
   @Get('serial/:serial')
   @ApiOperation({
     summary:
-      'Obtener detalle de un vehículo por los últimos 4 dígitos de su número de serie',
+      'Obtener detalle de un vehículo por los últimos 4 dígitos de su número de serie (Público / Staff)',
+  })
+  @ApiQuery({
+    name: 'branchId',
+    required: false,
+    description: 'ID de la sucursal (opcional)',
   })
   findBySerialNumberLastFour(
-    @BranchId() branchId: string,
+    @Headers('x-branch-id') headerBranchId: string,
     @Param('serial') serial: string,
+    @Query('branchId') queryBranchId?: string,
   ) {
+    const branchId = headerBranchId || queryBranchId || '';
     return this.vehiclesService.findBySerialNumberLastFour(serial, branchId);
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
   @Roles('admin', 'seller')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Actualizar datos de un vehículo (Admin / Seller)' })
   update(
     @BranchId() branchId: string,
@@ -99,7 +126,9 @@ export class VehiclesController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard, BranchGuard)
   @Roles('admin')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Eliminar un vehículo (Solo Admin)' })
   remove(@BranchId() branchId: string, @Param('id') id: string) {
     return this.vehiclesService.remove(id, branchId);
