@@ -183,6 +183,17 @@ export class SalesService {
               );
             }
           }
+        } else if (item.type === 'external') {
+          if (!item.name || !item.name.trim()) {
+            throw new BadRequestException(
+              'Falta el nombre (name) para la refacción o producto externo',
+            );
+          }
+          if (item.unitPrice === undefined || item.unitPrice < 0) {
+            throw new BadRequestException(
+              'Falta el precio de venta (unitPrice) para el producto externo',
+            );
+          }
         } else {
           throw new BadRequestException(
             `Tipo de ítem desconocido: ${item.type}`,
@@ -253,6 +264,26 @@ export class SalesService {
             priceSnapshot,
             discount: itemDisc,
             origin: 'service',
+          });
+        } else if (item.type === 'external') {
+          const priceSnapshot =
+            item.unitPrice !== undefined ? item.unitPrice : 0;
+          const costSnapshot =
+            item.costPrice !== undefined ? item.costPrice : 0;
+
+          subtotal += priceSnapshot * item.quantity;
+          itemsDiscount += itemDisc * item.quantity;
+
+          saleItems.push({
+            type: 'external',
+            name: item.name!.trim(),
+            quantity: item.quantity,
+            priceSnapshot,
+            costSnapshot,
+            supplier: item.supplier?.trim(),
+            notes: item.notes?.trim(),
+            discount: itemDisc,
+            origin: 'direct',
           });
         }
       }
@@ -595,6 +626,12 @@ export class SalesService {
                 saleId: '$_id',
                 type: '$items.type',
                 quantity: { $ifNull: ['$items.quantity', 1] },
+                cost: {
+                  $multiply: [
+                    { $ifNull: ['$items.quantity', 1] },
+                    { $ifNull: ['$items.costSnapshot', 0] },
+                  ],
+                },
                 itemTotal: {
                   $multiply: [
                     { $ifNull: ['$items.quantity', 1] },
@@ -612,6 +649,7 @@ export class SalesService {
               $group: {
                 _id: '$type',
                 revenue: { $sum: '$itemTotal' },
+                cost: { $sum: '$cost' },
                 itemsCount: { $sum: '$quantity' },
                 uniqueSales: { $addToSet: '$saleId' },
               },
@@ -620,6 +658,7 @@ export class SalesService {
               $project: {
                 _id: 1,
                 revenue: 1,
+                cost: 1,
                 itemsCount: 1,
                 salesCount: { $size: '$uniqueSales' },
               },
@@ -835,7 +874,7 @@ export class SalesService {
       });
     }
 
-    // 5. Item Types Breakdown (Services vs Products)
+    // 5. Item Types Breakdown (Services vs Products vs External)
     const itemTypesBreakdown = {
       services: {
         revenue: 0,
@@ -845,6 +884,14 @@ export class SalesService {
       },
       products: {
         revenue: 0,
+        itemsCount: 0,
+        salesCount: 0,
+        revenuePercentage: 0,
+      },
+      external: {
+        revenue: 0,
+        cost: 0,
+        profit: 0,
         itemsCount: 0,
         salesCount: 0,
         revenuePercentage: 0,
@@ -867,6 +914,18 @@ export class SalesService {
         itemTypesBreakdown.products.revenuePercentage =
           totalRevenue > 0
             ? Number(((item.revenue / totalRevenue) * 100).toFixed(1))
+            : 0;
+      } else if (item._id === 'external') {
+        const rev = item.revenue || 0;
+        const cost = item.cost || 0;
+        itemTypesBreakdown.external.revenue = rev;
+        itemTypesBreakdown.external.cost = cost;
+        itemTypesBreakdown.external.profit = rev - cost;
+        itemTypesBreakdown.external.itemsCount = item.itemsCount;
+        itemTypesBreakdown.external.salesCount = item.salesCount;
+        itemTypesBreakdown.external.revenuePercentage =
+          totalRevenue > 0
+            ? Number(((rev / totalRevenue) * 100).toFixed(1))
             : 0;
       }
     }

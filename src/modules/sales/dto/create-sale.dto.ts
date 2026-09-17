@@ -16,10 +16,10 @@ import { i18nValidationMessage } from 'nestjs-i18n';
 export class SaleItemDto {
   @ApiProperty({
     example: 'product',
-    enum: ['product', 'service'],
-    description: 'Tipo de ítem',
+    enum: ['product', 'service', 'external'],
+    description: 'Tipo de ítem (product, service, external)',
   })
-  @IsEnum(['product', 'service'], {
+  @IsEnum(['product', 'service', 'external'], {
     message: i18nValidationMessage('validation.isEnum'),
   })
   @IsNotEmpty({ message: i18nValidationMessage('validation.isNotEmpty') })
@@ -27,7 +27,7 @@ export class SaleItemDto {
 
   @ApiPropertyOptional({
     example: '60d5ec49c6d48227b409748e',
-    description: 'ID del producto',
+    description: 'ID del producto (Requerido si type es product)',
   })
   @IsMongoId({ message: i18nValidationMessage('validation.isMongoId') })
   @IsOptional()
@@ -42,9 +42,9 @@ export class SaleItemDto {
   serviceId?: string;
 
   @ApiPropertyOptional({
-    example: 'Mantenimiento Express Temporal',
+    example: 'Bomba de agua Gates',
     description:
-      'Nombre del servicio temporal (Requerido si no se envía serviceId)',
+      'Nombre del servicio temporal o refacción externa (Requerido si type es external o servicio temporal)',
   })
   @IsString({ message: i18nValidationMessage('validation.isString') })
   @IsOptional()
@@ -59,12 +59,38 @@ export class SaleItemDto {
   @ApiPropertyOptional({
     example: 150.0,
     description:
-      'Precio unitario (Si se envía, sobreescribe el precio de catálogo)',
+      'Precio unitario cobrado al cliente (Requerido si type es external o servicio temporal)',
   })
   @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })
   @Min(0, { message: i18nValidationMessage('validation.min') })
   @IsOptional()
   unitPrice?: number;
+
+  @ApiPropertyOptional({
+    example: 100.0,
+    description:
+      'Costo unitario de compra al taller/proveedor externo (Opcional, para cálculo de ganancia)',
+  })
+  @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })
+  @Min(0, { message: i18nValidationMessage('validation.min') })
+  @IsOptional()
+  costPrice?: number;
+
+  @ApiPropertyOptional({
+    example: 'Taller Los Primos',
+    description: 'Nombre del taller o proveedor donde se compró la pieza',
+  })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  supplier?: string;
+
+  @ApiPropertyOptional({
+    example: 'Garantía 30 días con el proveedor',
+    description: 'Notas o detalles adicionales de la refacción externa',
+  })
+  @IsString({ message: i18nValidationMessage('validation.isString') })
+  @IsOptional()
+  notes?: string;
 
   @ApiPropertyOptional({ example: 10.0, description: 'Descuento unitario' })
   @IsNumber({}, { message: i18nValidationMessage('validation.isNumber') })

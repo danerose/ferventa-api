@@ -99,14 +99,23 @@ describe('SalesService', () => {
               {
                 _id: 'service',
                 revenue: 1500000000,
+                cost: 0,
                 itemsCount: 12,
                 salesCount: 10,
               },
               {
                 _id: 'product',
                 revenue: 3828764604,
+                cost: 0,
                 itemsCount: 45,
                 salesCount: 22,
+              },
+              {
+                _id: 'external',
+                revenue: 100000,
+                cost: 60000,
+                itemsCount: 2,
+                salesCount: 2,
               },
             ],
           },
@@ -159,7 +168,7 @@ describe('SalesService', () => {
       expect(result.monthlyTrend[5].revenue).toBe(5328764604);
       expect(result.monthlyTrend[0].revenue).toBe(0);
 
-      // 5. Products vs Services validation
+      // 5. Products vs Services vs External validation
       expect(result.itemTypesBreakdown.services.revenue).toBe(1500000000);
       expect(result.itemTypesBreakdown.services.itemsCount).toBe(12);
       expect(result.itemTypesBreakdown.services.salesCount).toBe(10);
@@ -169,6 +178,13 @@ describe('SalesService', () => {
       expect(result.itemTypesBreakdown.products.itemsCount).toBe(45);
       expect(result.itemTypesBreakdown.products.salesCount).toBe(22);
       expect(result.itemTypesBreakdown.products.revenuePercentage).toBe(71.9);
+
+      expect(result.itemTypesBreakdown.external.revenue).toBe(100000);
+      expect(result.itemTypesBreakdown.external.cost).toBe(60000);
+      expect(result.itemTypesBreakdown.external.profit).toBe(40000);
+      expect(result.itemTypesBreakdown.external.itemsCount).toBe(2);
+      expect(result.itemTypesBreakdown.external.salesCount).toBe(2);
+      expect(result.itemTypesBreakdown.external.revenuePercentage).toBe(0);
     });
 
     it('should return empty stats without error when no sales match', async () => {

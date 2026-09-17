@@ -2522,26 +2522,29 @@ Base URL: `/api`
 ## Ventas (POS)
 
 ### [POST] /sales
-**Summary**: Registrar una venta (Pago en efectivo o con tarjeta Mercado Pago Point)
+**Summary**: Registrar una venta (Pago en efectivo, tarjeta o transferencia con soporte para productos de inventario, servicios y refacciones/productos externos)
 
 **Request Body**:
 ```json
 {
-  "quoteId": "string",
-  "customerId": "string",
+  "quoteId": "string (Opcional - ID de la cotización si proviene de una)",
+  "customerId": "string (Opcional - ID del cliente)",
   "items": [
     {
-      "type": "product",
-      "productId": "string",
-      "serviceId": "string",
-      "name": "string",
-      "quantity": 0,
-      "unitPrice": 0,
-      "discount": 0
+      "type": "product", // "product" | "service" | "external"
+      "productId": "60d5ec49c6d48227b409748e", // Requerido si type="product" (descuenta stock)
+      "serviceId": "60d5ec49c6d48227b409749a", // Opcional si type="service"
+      "name": "Bomba de agua Gates", // Requerido si type="external" o servicio temporal
+      "quantity": 1, // Cantidad vendida
+      "unitPrice": 1800, // Precio cobrado al cliente (Obligatorio en type="external")
+      "costPrice": 1200, // (Opcional) Costo de compra al otro taller/proveedor (type="external") para calcular margen de ganancia real
+      "supplier": "Taller Hermanos Pérez", // (Opcional) Taller o proveedor donde se adquirió
+      "notes": "Garantía de 30 días", // (Opcional) Notas adicionales
+      "discount": 0 // Descuento unitario aplicable
     }
   ],
   "globalDiscount": 0,
-  "paymentMethod": "cash",
+  "paymentMethod": "cash", // "cash" | "card" | "transfer"
   "paymentReference": "string"
 }
 ```
@@ -2755,6 +2758,14 @@ Base URL: `/api`
           "itemsCount": 45,
           "salesCount": 22,
           "revenuePercentage": 71.9
+        },
+        "external": {
+          "revenue": 50000,
+          "cost": 32000,
+          "profit": 18000,
+          "itemsCount": 5,
+          "salesCount": 3,
+          "revenuePercentage": 0.9
         }
       }
     },

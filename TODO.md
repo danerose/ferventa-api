@@ -1,341 +1,94 @@
-# 📋 Guía Técnica y Lista de Tareas (TODO) — Ferventa
+# 📋 TODO: Soporte para Refacciones / Ítems Externos en Punto de Venta (POS)
 
-Este documento consolida la arquitectura de **Recepciones de Mercancía, Cajas en Bodega, Códigos QR, FIFO y Unificación de Precios**, junto con el código y las especificaciones exactas para el desarrollador de **Frontend (`ferventa-web`)**.
-
----
-
-## 🧭 Resumen de Estatus
-
-* **Backend (`ferventa-api`)**: 100% implementado y listo para consumo. Modelos, endpoints de recepciones en borrador, aprobación, generación de `boxCode`, apertura de cajas, unificación de precios y registro en Kardex.
-* **Frontend (`ferventa-web`)**: Pendiente de integrar los formularios, impresión de etiquetas QR y acción de apertura de caja.
+## 🎯 Objetivo
+Permitir que el cajero/recepcionista pueda vender productos o refacciones compradas bajo demanda a otros talleres o refaccionarias sin necesidad de darlas de alta previamente en el catálogo de inventario ni descontar stock.
 
 ---
 
-## 1. 💡 Arquitectura: ¿Cómo funciona el Inventario, Cajas y FIFO?
+## 🏗️ 1. Interfaz de Usuario (UI/UX) en la Pantalla de POS
 
-1. **Piso de Venta (Mostrador) vs Bodega:**
-   * El campo `product.stock` representa **exclusivamente el mostrador** (lo vendible en el POS).
-   * Al recibir mercancía, las piezas quedan como **cajas selladas en bodega** (`isBoxSealed: true`), por lo que el stock de mostrador **no aumenta de inmediato**.
-2. **Nuevo Precio de Venta (`sellingPrice`):**
-   * Al capturar la recepción se asigna el costo (`costPrice`) y opcionalmente el **Nuevo Precio de Venta al Público (`sellingPrice`)**.
-   * Mientras la caja esté sellada en bodega, el mostrador sigue vendiendo el remanente al precio anterior.
-3. **Cajas independientes por producto:**
-   * Si en una remisión recibes Aceite y Bujías, se generan dos códigos de caja independientes (ej. `BOX-...-1-042` para Aceite y `BOX-...-2-891` para Bujías).
-   * Puedes abrir únicamente la caja de Bujías y dejar el Aceite guardado en bodega.
-4. **Apertura de Caja (`openBox` / FIFO):**
-   * Al escanear o presionar "Abrir Caja" con el `boxCode`:
-     * Suma la cantidad de piezas al `product.stock` de mostrador.
-     * Actualiza el `product.sellingPrice` y `costPrice` con los valores del nuevo lote.
-     * Marca la caja como abierta (`isBoxSealed: false`) y crea el movimiento de Kardex.
+### A. Botón de Acción Rápida
+- [ ] En la sección del buscador de productos/catálogo del POS, agregar un botón secundario visible:
+  - **Texto sugerido:** `+ Refacción / Ítem Externo` o `+ Concepto Libre`.
+  - **Ícono sugerido:** `PlusCircle` / `ExternalLink` / `Wrench`.
 
 ---
 
-## 2. 🛠️ Endpoints y Payloads del Backend
+### B. Modal / Drawer de Captura de Ítem Externo
+Crear un modal o diálogo simple y rápido con los siguientes campos:
 
-### A. Listar Recepciones (Paginado)
-* **Método:** `GET /inventory/receptions?page=1&limit=10&status=approved`
-* **Roles:** `admin`, `warehouse`, `seller`
-* **Query Params:**
-  * `page` (opcional, default 1): Número de página.
-  * `limit` (opcional, default 10): Elementos por página.
-  * `status` (opcional): `draft`, `approved`, o `rejected`.
-* **Respuesta:**
+- [ ] **Nombre / Descripción de la Refacción (`name`)** `[OBLIGATORIO]`
+  - *Ejemplo:* `"Bomba de agua Gates 1.6"` o `"Balatas traseras cerámicas"`.
+  - *Validación:* String no vacío.
+- [ ] **Cantidad (`quantity`)** `[OBLIGATORIO]`
+  - *Default:* `1`. Mínimo `1`.
+- [ ] **Precio de Venta al Cliente (`unitPrice`)** `[OBLIGATORIO]`
+  - *Ejemplo:* `$1,800.00`.
+  - Es el precio que se sumará al subtotal del ticket y pagará el cliente.
+- [ ] **Costo de Compra al Tercero (`costPrice`)** `[OPCIONAL]`
+  - *Ejemplo:* `$1,200.00`.
+  - *Tooltip / Leyenda:* `"Opcional: Lo que costó comprar la refacción para calcular el margen de ganancia real."`
+  - Si no se captura, se enviará `0` o `undefined`.
+- [ ] **Taller / Proveedor Origen (`supplier`)** `[OPCIONAL]`
+  - *Ejemplo:* `"Taller Eléctrico Los Primos"` o `"AutoZone Norte"`.
+- [ ] **Notas / Garantía (`notes`)** `[OPCIONAL]`
+  - *Ejemplo:* `"Garantía 30 días directo con el proveedor"`.
+
+---
+
+### C. Visualización en la Lista / Carrito de Venta
+- [ ] Renderizar el ítem en la lista del carrito con una etiqueta o badge distintivo:
+  - Badge tipo: `[EXTERNO]` o `[BAJO DEMANDA]` (color neutro o morado suave).
+- [ ] Mostrar subtítulo con información secundaria si existe:
+  - *Ejemplo:* `1x Bomba de agua Gates — $1,800.00`
+  - *(Interno)* `Costo: $1,200.00 · Proveedor: Taller Los Primos`
+- [ ] Permitir modificar la cantidad, aplicar descuento unitario (`discount`) o eliminar el ítem del carrito igual que con productos estándar.
+
+---
+
+### D. Ticket de Venta / Impresión al Cliente
+- [ ] En el ticket impreso o digital para el cliente final:
+  - **Debe salir:** Nombre (`name`), Cantidad (`quantity`), Precio Unitario (`unitPrice`) y Subtotal.
+  - **NO debe salir:** Ni el costo de compra (`costPrice`) ni el proveedor externo (`supplier`) para mantener la privacidad comercial.
+
+---
+
+## 📡 2. Integración con el Backend (`POST /sales`)
+
+### Payload esperado por la API:
+Al confirmar la venta, cada ítem externo se envía dentro del arreglo `items` con `type: 'external'`:
+
 ```json
 {
+  "customerId": "60d5ec49c6d48227b409748b",
   "items": [
     {
-      "_id": "60d5ec49c6d48227b4097400",
-      "status": "approved",
-      "invoiceOrFolio": "FAC-98421",
-      "items": [
-        {
-          "sku": "ACE-MOTUL-10W40",
-          "name": "Aceite Motul 10W40 1L",
-          "quantity": 20,
-          "boxCode": "BOX-1726435200000-1-9821",
-          "isBoxSealed": true
-        }
-      ],
-      "totalBoxes": 1,
-      "sealedBoxesCount": 1,
-      "openedBoxesCount": 0,
-      "isFullyOpened": false,
-      "sealedStock": 20,
-      "openedStock": 0,
-      "totalStock": 20
+      "type": "external",
+      "name": "Bomba de agua Gates 1.6",
+      "quantity": 1,
+      "unitPrice": 1800,
+      "costPrice": 1200,
+      "supplier": "Taller Los Primos",
+      "notes": "Garantía 30 días",
+      "discount": 0
+    },
+    {
+      "type": "product",
+      "productId": "60d5ec49c6d48227b409748e",
+      "quantity": 2,
+      "unitPrice": 150,
+      "discount": 0
     }
   ],
-  "total": 1,
-  "page": 1,
-  "limit": 10,
-  "totalPages": 1
+  "globalDiscount": 0,
+  "paymentMethod": "cash",
+  "paymentReference": ""
 }
 ```
 
----
-
-### B. Crear Recepción en Borrador
-* **Método:** `POST /inventory/receptions`
-* **Roles:** `admin`, `warehouse`, `seller`
-* **Body:**
-```json
-{
-  "providerId": "60d5ec49c6d48227b409748f",
-  "invoiceOrFolio": "FAC-98421",
-  "notes": "Lote recibido en almacén",
-  "items": [
-    {
-      "productId": "60d5ec49c6d48227b409748e",
-      "quantity": 20,
-      "costPrice": 120,
-      "sellingPrice": 200
-    }
-  ]
-}
-```
-
----
-
-### C. Aprobar Recepción (Solo Admin)
-* **Método:** `PATCH /inventory/receptions/:id/approve`
-* **Roles:** `admin`
-* **Respuesta (`items` con códigos de caja generados):**
-```json
-{
-  "_id": "60d5ec49c6d48227b4097400",
-  "status": "approved",
-  "invoiceOrFolio": "FAC-98421",
-  "items": [
-    {
-      "_id": "60d5ec49c6d48227b4097499",
-      "sku": "ACE-MOTUL-10W40",
-      "name": "Aceite Motul 10W40 1L",
-      "quantity": 20,
-      "costPrice": 120,
-      "sellingPrice": 200,
-      "boxCode": "BOX-M3X89K-1-042",
-      "isBoxSealed": true
-    }
-  ]
-}
-```
-
----
-
-### D. Rechazar Recepción (Solo Admin)
-* **Método:** `PATCH /inventory/receptions/:id/reject`
-* **Roles:** `admin`
-* **Body:**
-```json
-{
-  "reason": "Factura con importes incorrectos"
-}
-```
-
----
-
-### E. Abrir Caja (Surtir Mostrador y Nivelar Precio)
-* **Método:** `POST /inventory/boxes/open`
-* **Roles:** `admin`, `warehouse`, `seller`
-* **Body:**
-```json
-{
-  "boxCode": "BOX-M3X89K-1-042"
-}
-```
-* **Respuesta:**
-```json
-{
-  "success": true,
-  "message": "Caja BOX-M3X89K-1-042 abierta exitosamente...",
-  "boxCode": "BOX-M3X89K-1-042",
-  "product": {
-    "_id": "60d5ec49c6d48227b409748e",
-    "name": "Aceite Motul 10W40 1L",
-    "previousStock": 3,
-    "currentStock": 23,
-    "previousSellingPrice": 180,
-    "currentSellingPrice": 200
-  }
-}
-```
-
----
-
-## 3. 💻 Código Frontend Listo para Usar (`ferventa-web`)
-
-### Paso 1: Instalar librería QR
-```bash
-npm install qrcode.react
-```
-
-### Paso 2: Componente de Etiqueta Térmica (`BoxQRLabel.tsx`)
-```tsx
-import React from 'react';
-import { QRCodeSVG } from 'qrcode.react';
-
-export interface BoxItemData {
-  _id: string;
-  sku: string;
-  name: string;
-  quantity: number;
-  costPrice: number;
-  sellingPrice: number;
-  boxCode: string;
-  isBoxSealed: boolean;
-}
-
-interface BoxQRLabelProps {
-  item: BoxItemData;
-  invoiceOrFolio?: string;
-  branchName?: string;
-}
-
-export const BoxQRLabel: React.FC<BoxQRLabelProps> = ({
-  item,
-  invoiceOrFolio,
-  branchName = 'Ferventa',
-}) => {
-  return (
-    <div
-      className="box-label-container"
-      style={{
-        width: '72mm',
-        padding: '8px',
-        border: '1px dashed #cbd5e1',
-        borderRadius: '6px',
-        backgroundColor: '#ffffff',
-        fontFamily: 'monospace, sans-serif',
-        color: '#000000',
-        pageBreakInside: 'avoid',
-        marginBottom: '12px',
-      }}
-    >
-      {/* Cabecera */}
-      <div style={{ textAlign: 'center', borderBottom: '1px solid #000', paddingBottom: '4px', marginBottom: '6px' }}>
-        <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase' }}>{branchName}</div>
-        <div style={{ fontSize: '10px' }}>LOTE / CAJA DE ALMACÉN</div>
-      </div>
-
-      {/* Cuerpo con QR y Datos */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={{ padding: '4px', backgroundColor: '#fff', border: '1px solid #000', borderRadius: '4px' }}>
-          <QRCodeSVG value={item.boxCode} size={90} level="M" />
-        </div>
-
-        <div style={{ flex: 1, fontSize: '11px', lineHeight: '1.3' }}>
-          <div style={{ fontWeight: 'bold', fontSize: '12px' }}>{item.name}</div>
-          <div>SKU: <strong>{item.sku}</strong></div>
-          <div>Contenido: <strong>{item.quantity} pzas</strong></div>
-          <div>P. Venta: <strong>${item.sellingPrice.toFixed(2)}</strong></div>
-          {invoiceOrFolio && <div style={{ fontSize: '9px', color: '#333' }}>Folio: {invoiceOrFolio}</div>}
-        </div>
-      </div>
-
-      {/* Código visible */}
-      <div style={{ marginTop: '6px', textAlign: 'center', borderTop: '1px solid #000', paddingTop: '3px' }}>
-        <span style={{ fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.5px' }}>{item.boxCode}</span>
-      </div>
-    </div>
-  );
-};
-```
-
-### Paso 3: Modal de Impresión de Etiquetas (`BoxPrintModal.tsx`)
-```tsx
-import React, { useRef } from 'react';
-import { BoxQRLabel, BoxItemData } from './BoxQRLabel';
-
-interface BoxPrintModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  reception: {
-    _id: string;
-    invoiceOrFolio?: string;
-    items: BoxItemData[];
-  } | null;
-}
-
-export const BoxPrintModal: React.FC<BoxPrintModalProps> = ({ isOpen, onClose, reception }) => {
-  const printAreaRef = useRef<HTMLDivElement>(null);
-
-  if (!isOpen || !reception) return null;
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  return (
-    <div className="modal-overlay">
-      <style>
-        {`
-          @media print {
-            body * {
-              visibility: hidden;
-            }
-            #box-print-section, #box-print-section * {
-              visibility: visible;
-            }
-            #box-print-section {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100%;
-            }
-          }
-        `}
-      </style>
-
-      <div className="modal-content" style={{ maxWidth: '500px', padding: '20px' }}>
-        <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>
-          📦 Etiquetas QR de Cajas
-        </h3>
-        <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>
-          Imprime y pega estas etiquetas en cada bulto/caja en la bodega.
-        </p>
-
-        <div
-          id="box-print-section"
-          ref={printAreaRef}
-          style={{ maxHeight: '400px', overflowY: 'auto', padding: '10px', backgroundColor: '#f8fafc', borderRadius: '8px' }}
-        >
-          {reception.items.map((item) => (
-            <BoxQRLabel
-              key={item._id || item.boxCode}
-              item={item}
-              invoiceOrFolio={reception.invoiceOrFolio}
-            />
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-            Cerrar
-          </button>
-          <button
-            onClick={handlePrint}
-            style={{ padding: '8px 16px', borderRadius: '6px', backgroundColor: '#0284c7', color: '#fff', fontWeight: 'bold' }}
-          >
-            🖨️ Imprimir Todas ({reception.items.length})
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-```
-
----
-
-## 4. 📝 Tareas Pendientes para Frontend (`ferventa-web`)
-
-- [ ] **Modal de Ingreso de Mercancía (`POST /inventory/receptions`):**
-  - [ ] Agregar input editable de **Nuevo Precio de Venta (`sellingPrice`)** en la tabla de productos recibidos, pre-llenado con el precio actual.
-- [ ] **Bandeja de Recepciones (`GET /inventory/receptions`):**
-  - [ ] Mostrar estados `draft`, `approved`, `rejected`.
-  - [ ] Botones para Admin: **Aprobar** (`PATCH /inventory/receptions/:id/approve`) y **Rechazar** (`PATCH /inventory/receptions/:id/reject`).
-- [ ] **Generador e Impresión de Etiquetas QR:**
-  - [ ] Integrar `BoxQRLabel` y `BoxPrintModal` en recepciones aprobadas.
-- [ ] **Modal / Botón "Abrir Caja de Bodega" (`POST /inventory/boxes/open`):**
-  - [ ] Input para teclear/escanear `boxCode` o botón directo en la lista de cajas selladas.
-  - [ ] Toast de confirmación con el nuevo stock y el precio actualizado.
+### ⚠️ Reglas y Validaciones Clave:
+1. **`type`**: Debe ser `'external'`.
+2. **`productId` / `serviceId`**: **NO** enviarlos en ítems externos (deben ser omitidos o `undefined`).
+3. **`name`** y **`unitPrice`**: Son obligatorios para `type: 'external'`.
+4. **`costPrice`**, **`supplier`**, **`notes`**: Son opcionales (el backend asignará `0` de costo si no se envían).
+5. **Inventario:** El backend automáticamente omitirá la validación y el descuento de stock para estos ítems.

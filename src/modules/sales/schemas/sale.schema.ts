@@ -10,7 +10,11 @@ export type SaleDocument = Sale & Document;
 
 @Schema({ _id: false })
 export class SaleItem {
-  @Prop({ required: true, enum: ['product', 'service'], default: 'product' })
+  @Prop({
+    required: true,
+    enum: ['product', 'service', 'external'],
+    default: 'product',
+  })
   type: string;
 
   @Prop({
@@ -38,6 +42,15 @@ export class SaleItem {
 
   @Prop({ required: true, type: Number })
   priceSnapshot: number; // Selling price at the time of sale
+
+  @Prop({ required: false, type: Number, default: 0 })
+  costSnapshot?: number; // Cost of acquiring the item from 3rd party
+
+  @Prop({ required: false })
+  supplier?: string; // Origin supplier or workshop name
+
+  @Prop({ required: false })
+  notes?: string;
 
   @Prop({ type: Number, default: 0 })
   discount: number; // Unit discount amount
