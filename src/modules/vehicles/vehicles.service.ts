@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  OnModuleInit,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -16,11 +18,35 @@ import {
 } from '../../common/utils/search.util';
 
 @Injectable()
-export class VehiclesService {
+export class VehiclesService implements OnModuleInit {
+  private readonly logger = new Logger(VehiclesService.name);
+
   constructor(
     @InjectModel(Vehicle.name) private vehicleModel: Model<VehicleDocument>,
     private readonly customersService: CustomersService,
   ) {}
+
+  async onModuleInit() {
+    try {
+      const indexes = await this.vehicleModel.collection.indexes();
+      const serialIndex = indexes.find(
+        (idx) =>
+          idx.name === 'serialNumberLastFour_1' ||
+          (idx.key && (idx.key as any).serialNumberLastFour !== undefined),
+      );
+      if (serialIndex && (serialIndex as any).unique && serialIndex.name) {
+        await this.vehicleModel.collection.dropIndex(serialIndex.name);
+        this.logger.log(
+          `Dropped legacy unique index '${serialIndex.name}' on vehicles collection.`,
+        );
+        await this.vehicleModel.createIndexes();
+      }
+    } catch (error: any) {
+      this.logger.warn(
+        `Could not verify/drop legacy vehicle serial index: ${error?.message}`,
+      );
+    }
+  }
 
   async create(
     createVehicleDto: CreateVehicleDto,

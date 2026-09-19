@@ -126,6 +126,12 @@ export class MigrationService {
     } catch (e) {
       // Ignore if index doesn't exist
     }
+    try {
+      await this.vehicleModel.collection.dropIndex('serialNumberLastFour_1');
+      this.logger.log('Dropped old global unique index for serialNumberLastFour');
+    } catch (e) {
+      // Ignore if index doesn't exist
+    }
 
     // 2. Assign this branch to the initial admin (and all admins without a branch)
     const adminRole = await this.roleModel.findOne({ name: 'admin' });
